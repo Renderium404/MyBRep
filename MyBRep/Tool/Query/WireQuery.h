@@ -6,7 +6,7 @@
 #include "MyMath/Matrix4.h"
 #include "MyBRep/Base/Bounds3.h"
 #include "MyBRep/Instance/Wire.h"
-#include "MyBRep/Query/EdgeQuery.h"
+#include "MyBRep/Tool/Query/EdgeQuery.h"
 #include "MyBRep/Topology/Wire/Topology_Wire.h"
 
 namespace MyBRep

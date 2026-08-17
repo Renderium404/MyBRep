@@ -41,11 +41,9 @@ public:
 
 protected:
     // 使用完整Surface和零个或多个闭合裁剪Wire创建共享Face实体。
-    Topology_TFace(const Foundation::RefPtr<const Geometry_Surface>& geometry,
-                   const std::vector<Topology_Wire>& wires);
+    Topology_TFace(const Foundation::RefPtr<const Geometry_Surface>& geometry,const std::vector<Topology_Wire>& wires);
     // 通过Topology_Face持有的最终共享引用释放拓扑面实体。
     ~Topology_TFace() override = default;
-
 private:
     Foundation::RefPtr<const Geometry_Surface> m_geometry; // 当前Face引用的完整不可变参数曲面。
     std::vector<Topology_Wire> m_wires; // 规范Forward Face保存的全部有向闭合裁剪Wire。

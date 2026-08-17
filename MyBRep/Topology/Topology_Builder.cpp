@@ -1,5 +1,6 @@
 #include "Topology_Builder.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 

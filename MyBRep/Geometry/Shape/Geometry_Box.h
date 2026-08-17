@@ -13,7 +13,8 @@ class Geometry_Box : public Geometry_Shape
 public:
     // 使用三个方向的完整尺寸创建标准长方体。
     Geometry_Box(double sizeX, double sizeY, double sizeZ);
-
+    // 通过侵入式引用计数管理标准长方体生命周期。
+    ~Geometry_Box() override = default;
     /// 几何参数
 
     // 返回长方体X方向完整尺寸。
@@ -43,8 +44,7 @@ public:
     ShapeRelation classifyLocalBounds(const Bounds3& bounds) const override;
 
 protected:
-    // 通过侵入式引用计数管理标准长方体生命周期。
-    ~Geometry_Box() override = default;
+
 
 private:
     double m_sizeX; // 长方体X方向完整尺寸。

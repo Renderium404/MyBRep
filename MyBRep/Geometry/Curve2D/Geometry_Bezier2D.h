@@ -15,7 +15,8 @@ class Geometry_Bezier2D : public Geometry_Curve2D
 public:
     // 使用至少两个有限二维控制点创建Bezier曲线，控制点不能全部重合。
     explicit Geometry_Bezier2D(const std::vector<MyMath::Vector2>& controlPoints);
-
+    // 通过侵入式引用计数管理二维Bezier曲线几何生命周期。
+    ~Geometry_Bezier2D() override = default;
     /// 控制数据
 
     // 返回控制点数量。
@@ -56,8 +57,7 @@ public:
     MyMath::Vector2 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理二维Bezier曲线几何生命周期。
-    ~Geometry_Bezier2D() override = default;
+
 
 private:
     // 使用de Casteljau算法对指定二维控制点序列进行参数求值。

@@ -13,7 +13,8 @@ class Geometry_Cylinder : public Geometry_Shape
 public:
     // 使用指定半径和完整高度创建标准圆柱体。
     Geometry_Cylinder(double radius, double height);
-
+    // 通过侵入式引用计数管理标准圆柱体生命周期。
+    ~Geometry_Cylinder() override = default;
     /// 几何参数
 
     // 返回圆柱体半径。
@@ -41,8 +42,7 @@ public:
 
 
 protected:
-    // 通过侵入式引用计数管理标准圆柱体生命周期。
-    ~Geometry_Cylinder() override = default;
+
 
 private:
     double m_radius; // 圆柱体半径。

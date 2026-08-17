@@ -11,8 +11,9 @@
 namespace
 {
 
-const double Pi = 3.1415926535897932384626433832795; // 圆参数区间和圆弧交点计算统一使用弧度制。 const double TwoPi = Pi * 2.0; // 单个Circle母线段允许覆盖的最大周期。
-    const double NumericalScale = 64.0; // 坐标、射线和参数边界判断覆盖舍入误差使用的固定倍数。
+const double Pi = 3.1415926535897932384626433832795; // 圆参数区间和圆弧交点计算统一使用弧度制。
+const double TwoPi = Pi * 2.0; // 单个Circle母线段允许覆盖的最大周期。
+const double NumericalScale = 64.0; // 坐标、射线和参数边界判断覆盖舍入误差使用的固定倍数。
 
 // 判断标量是否为有限值。
 bool isFiniteValue(double value)
@@ -409,8 +410,8 @@ bool circleSegmentIntersectsRectangle(const MyBRep::Geometry_Circle& circle, dou
 namespace MyBRep
 {
 
-Geometry_Revolved::Geometry_Revolved( const std::vector<ProfileSegment>& profileSegments, double profileTolerance) : m_profileSegments(profileSegments)
-    , m_profileTolerance(profileTolerance) , m_profileSignedArea(0.0) , m_radialSign(0.0)
+Geometry_Revolved::Geometry_Revolved(const std::vector<ProfileSegment>& profileSegments, double profileTolerance)
+    : m_profileSegments(profileSegments), m_profileTolerance(profileTolerance), m_profileSignedArea(0.0), m_radialSign(0.0)
 {
     MYBREP_ASSERT_MESSAGE(isFiniteNonNegative(profileTolerance), "Geometry_Revolved profile tolerance must be finite and non-negative.");
     MYBREP_ASSERT_MESSAGE(!m_profileSegments.empty(), "Geometry_Revolved requires a non-empty closed profile.");

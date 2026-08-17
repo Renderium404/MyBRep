@@ -134,8 +134,7 @@ Topology_Edge createLine(const MyMath::Vector3& startPoint,
     const MyMath::Vector3 direction = endPoint - startPoint;
     const double length = direction.length();
 
-    const Foundation::RefPtr<const Geometry_Curve> geometry(
-        new Geometry_Line(startPoint, direction));
+    const Foundation::RefPtr<const Geometry_Curve> geometry(new Geometry_Line(startPoint, direction));
 
     const Topology_Vertex startVertex(startPoint);
     const Topology_Vertex endVertex(endPoint);

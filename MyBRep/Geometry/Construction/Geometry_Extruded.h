@@ -40,7 +40,8 @@ public:
     Geometry_Extruded(const std::vector<ProfileSegment>& profileSegments,
                       double height,
                       double profileTolerance);
-
+    // 通过侵入式引用计数管理拉伸连续几何体生命周期。
+    ~Geometry_Extruded() override = default;
     /// 母线几何数据
 
     // 返回闭合母线包含的有限曲线段数量。
@@ -78,8 +79,7 @@ public:
     ShapeRelation classifyLocalBounds(const Bounds3& bounds) const override;
 
 protected:
-    // 通过侵入式引用计数管理拉伸连续几何体生命周期。
-    ~Geometry_Extruded() override = default;
+
 
 private:
     // 校验全部母线段的数据、平面约束和闭合连接关系。

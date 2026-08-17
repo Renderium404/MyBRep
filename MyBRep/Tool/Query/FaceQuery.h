@@ -9,7 +9,7 @@
 #include "MyBRep/Base/Bounds3.h"
 #include "MyBRep/Geometry/Surface/Geometry_Surface.h"
 #include "MyBRep/Instance/Face.h"
-#include "MyBRep/Query/EdgeQuery.h"
+#include "MyBRep/Tool/Query/EdgeQuery.h"
 #include "MyBRep/Topology/Face/Topology_Face.h"
 
 namespace MyBRep

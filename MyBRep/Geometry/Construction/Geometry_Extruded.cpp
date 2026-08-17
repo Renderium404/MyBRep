@@ -704,7 +704,7 @@ ShapeRelation Geometry_Extruded::classifyProfileBounds(const Bounds3& bounds) co
             if (lineSegmentIntersectsRectangle(segmentStartPoint(segment),
                                                segmentEndPoint(segment),
                                                bounds,
-                                               tolerance))
+                                               m_profileTolerance))
             {
                 boundaryIntersects = true;
                 break;
@@ -756,7 +756,7 @@ ShapeRelation Geometry_Extruded::classifyProfileBounds(const Bounds3& bounds) co
                                                segment.firstParameter,
                                                segment.lastParameter,
                                                candidate,
-                                               tolerance))
+                                               m_profileTolerance))
                 {
                     boundaryIntersects = true;
                     break;
@@ -795,7 +795,7 @@ ShapeRelation Geometry_Extruded::classifyProfileBounds(const Bounds3& bounds) co
                                                segment.firstParameter,
                                                segment.lastParameter,
                                                candidate,
-                                               tolerance))
+                                               m_profileTolerance))
                 {
                     boundaryIntersects = true;
                     break;

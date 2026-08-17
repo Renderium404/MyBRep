@@ -82,7 +82,7 @@ double Geometry_CylindricalSurface::radius() const
 
 SurfaceKind Geometry_CylindricalSurface::kind() const
 {
-    return SurfaceKind::Cylinder;
+    return SurfaceKind::Cylindrical;
 }
 
 /// U定义域

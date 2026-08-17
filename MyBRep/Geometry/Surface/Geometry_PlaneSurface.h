@@ -17,7 +17,8 @@ public:
     Geometry_PlaneSurface(const MyMath::Vector3& origin, const MyMath::Vector3& uDir, const MyMath::Vector3& vDir);
     // 使用指定有效正交坐标系的原点、X轴和Y轴创建无限平面。
     explicit Geometry_PlaneSurface(const MyMath::CoordinateSystem& coordinateSystem);
-
+    // 通过侵入式引用计数管理平面几何生命周期。
+    ~Geometry_PlaneSurface() override = default;
     /// 平面几何数据
 
     // 返回参数(u,v)=(0,0)对应的平面原点。
@@ -86,8 +87,7 @@ public:
     MyMath::Vector3 normalAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理平面几何生命周期。
-    ~Geometry_PlaneSurface() override = default;
+
 
 private:
     MyMath::Vector3 m_origin; // 参数(u,v)=(0,0)对应的平面原点。

@@ -13,6 +13,8 @@ class Geometry_Sphere : public Geometry_Shape
 public:
     // 使用指定半径创建标准球体。
     explicit Geometry_Sphere(double radius);
+    // 通过侵入式引用计数管理标准球体生命周期。
+    ~Geometry_Sphere() override = default;
 
     /// 几何参数
     // 返回球体半径。
@@ -35,8 +37,6 @@ public:
     ShapeRelation classifyLocalBounds(const Bounds3& bounds) const override;
 
 protected:
-    // 通过侵入式引用计数管理标准球体生命周期。
-    ~Geometry_Sphere() override = default;
 
 private:
     double m_radius; // 球体半径。

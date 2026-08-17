@@ -17,7 +17,8 @@ public:
                       double radius,
                       const MyMath::Vector2& xDir,
                       const MyMath::Vector2& yDir);
-
+    // 通过侵入式引用计数管理二维圆几何生命周期。
+    ~Geometry_Circle2D() override = default;
     /// 圆几何数据
 
     // 返回二维圆心。
@@ -60,8 +61,7 @@ public:
     MyMath::Vector2 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理二维圆几何生命周期。
-    ~Geometry_Circle2D() override = default;
+
 
 private:
     MyMath::Vector2 m_center; // 二维圆心。

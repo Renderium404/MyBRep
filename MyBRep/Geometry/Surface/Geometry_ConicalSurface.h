@@ -20,7 +20,8 @@ public:
                             const MyMath::Vector3& yDir);
     // 使用指定有效正交坐标系的原点、X/Y轴和半顶角创建完整单侧圆锥面。
     Geometry_ConicalSurface(const MyMath::CoordinateSystem& coordinateSystem, double semiAngle);
-
+    // 通过侵入式引用计数管理圆锥面几何生命周期。
+    ~Geometry_ConicalSurface() override = default;
     /// 圆锥几何数据
 
     // 返回圆锥顶点。
@@ -93,8 +94,7 @@ public:
     MyMath::Vector3 normalAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理圆锥面几何生命周期。
-    ~Geometry_ConicalSurface() override = default;
+
 
 private:
     MyMath::Vector3 m_apex; // 圆锥顶点。

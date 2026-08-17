@@ -15,7 +15,8 @@ public:
     // 使用非空母线曲线和单位拉伸方向创建完整无限拉伸曲面。
     Geometry_SurfaceOfExtrusion(const Foundation::RefPtr<const Geometry_Curve>& profileCurve,
                                 const MyMath::Vector3& direction);
-
+    // 通过侵入式引用计数管理拉伸曲面几何生命周期。
+    ~Geometry_SurfaceOfExtrusion() override = default;
     /// 拉伸几何数据
 
     // 返回拉伸曲面引用的不可变母线曲线。
@@ -77,8 +78,7 @@ public:
     MyMath::Vector3 secondDerivativeVVAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理拉伸曲面几何生命周期。
-    ~Geometry_SurfaceOfExtrusion() override = default;
+
 
 private:
     Foundation::RefPtr<const Geometry_Curve> m_profileCurve; // 定义U参数方向的不可变完整母线曲线。

@@ -14,7 +14,7 @@
 #include "MyBRep/Geometry/Curve2D/Geometry_Circle2D.h"
 #include "MyBRep/Geometry/Curve2D/Geometry_Curve2D.h"
 #include "MyBRep/Geometry/Curve2D/Geometry_Line2D.h"
-#include "MyBRep/Geometry/Surface/Geometry_Plane.h"
+#include "MyBRep/Geometry/Surface/Geometry_PlaneSurface.h"
 #include "MyBRep/Topology/Topology_Builder.h"
 
 namespace
@@ -43,7 +43,7 @@ MyMath::CoordinateSystem worldCoordinateSystem()
 }
 
 // 返回三维点在指定Plane参数空间中的(U,V)坐标。
-MyMath::Vector2 pointToUV(const MyBRep::Geometry_Plane& plane,
+MyMath::Vector2 pointToUV(const MyBRep::Geometry_PlaneSurface& plane,
                           const MyMath::Vector3& point,
                           double tolerance)
 {
@@ -52,7 +52,7 @@ MyMath::Vector2 pointToUV(const MyBRep::Geometry_Plane& plane,
 
     MYBREP_ASSERT_MESSAGE(point.isFinite() &&
                           std::fabs(normalDistance) <= tolerance,
-                          "Planar Face modeling requires every projected point to lie on the Geometry_Plane within tolerance.");
+                          "Planar Face modeling requires every projected point to lie on the Geometry_PlaneSurface within tolerance.");
 
     return MyMath::Vector2(
         MyMath::Vector3::dot(relative, plane.uDir()),
@@ -60,7 +60,7 @@ MyMath::Vector2 pointToUV(const MyBRep::Geometry_Plane& plane,
 }
 
 // 返回三维向量在指定Plane U/V基中的二维分量。
-MyMath::Vector2 vectorToUV(const MyBRep::Geometry_Plane& plane,
+MyMath::Vector2 vectorToUV(const MyBRep::Geometry_PlaneSurface& plane,
                            const MyMath::Vector3& vector)
 {
     return MyMath::Vector2(
@@ -83,15 +83,13 @@ MyBRep::Topology_Edge forwardEdge(
 // 从平面内三维Edge创建对应完整二维参数曲线，并返回二维自然参数区间。
 MyBRep::Foundation::RefPtr<const MyBRep::Geometry_Curve2D>
 createPlanarCurve2D(const MyBRep::Topology_Edge& edge,
-                    const MyBRep::Geometry_Plane& plane,
+                    const MyBRep::Geometry_PlaneSurface& plane,
                     double tolerance,
                     double& firstParameter,
                     double& lastParameter)
 {
-    const MyBRep::Topology_Edge standardEdge =
-        forwardEdge(edge);
-    const MyBRep::Geometry_Curve& geometry =
-        standardEdge.geometry();
+    const MyBRep::Topology_Edge standardEdge =forwardEdge(edge);
+    const MyBRep::Geometry_Curve& geometry =standardEdge.geometry();
 
     if (geometry.kind() == MyBRep::CurveKind::Line)
     {
@@ -131,16 +129,16 @@ createPlanarCurve2D(const MyBRep::Topology_Edge& edge,
                       tolerance);
 
         MYBREP_ASSERT_MESSAGE(
-            std::fabs(MyMath::Vector3::dot(circle.xAxis(),
+            std::fabs(MyMath::Vector3::dot(circle.xDir(),
                                            plane.normal())) <= directionTolerance &&
-            std::fabs(MyMath::Vector3::dot(circle.yAxis(),
+            std::fabs(MyMath::Vector3::dot(circle.yDir(),
                                            plane.normal())) <= directionTolerance,
-            "Planar Circle Edge basis must lie in the Geometry_Plane.");
+            "Planar Circle Edge basis must lie in the Geometry_PlaneSurface.");
 
         const MyMath::Vector2 xDirection =
-            vectorToUV(plane, circle.xAxis());
+            vectorToUV(plane, circle.xDir());
         const MyMath::Vector2 yDirection =
-            vectorToUV(plane, circle.yAxis());
+            vectorToUV(plane, circle.yDir());
 
         firstParameter =
             standardEdge.firstParameter();
@@ -219,7 +217,7 @@ createPlanarCurve2D(const MyBRep::Topology_Edge& edge,
 // 为全部Wire Edge建立当前Plane上的Curve-on-Surface表示。
 void attachPlanarCurveRepresentations(
     const MyBRep::Foundation::RefPtr<const MyBRep::Geometry_Surface>& surface,
-    const MyBRep::Geometry_Plane& plane,
+    const MyBRep::Geometry_PlaneSurface& plane,
     const std::vector<MyBRep::Topology_Wire>& wires,
     double tolerance)
 {
@@ -314,10 +312,10 @@ Topology_Face createPlanarFace(
                           "Planar Face modeling tolerance must be finite and non-negative.");
 
     const Foundation::RefPtr<const Geometry_Surface> surface(
-        new Geometry_Plane(coordinateSystem));
+        new Geometry_PlaneSurface(coordinateSystem));
 
-    const Geometry_Plane& plane =
-        static_cast<const Geometry_Plane&>(*surface);
+    const Geometry_PlaneSurface& plane =
+        static_cast<const Geometry_PlaneSurface&>(*surface);
 
     attachPlanarCurveRepresentations(surface,
                                      plane,

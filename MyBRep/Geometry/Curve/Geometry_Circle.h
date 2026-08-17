@@ -20,7 +20,8 @@ public:
                     const MyMath::Vector3& yDir);
     // 使用指定有效正交坐标系的原点、X轴和Y轴创建完整圆。
     Geometry_Circle(const MyMath::CoordinateSystem& coordinateSystem, double radius);
-
+    // 通过侵入式引用计数管理圆几何生命周期。
+    ~Geometry_Circle() override = default;
     /// 圆几何数据
 
     // 返回圆心。
@@ -63,8 +64,7 @@ public:
     MyMath::Vector3 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理圆几何生命周期。
-    ~Geometry_Circle() override = default;
+
 
 private:
     MyMath::Vector3 m_center; // 圆心。

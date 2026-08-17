@@ -13,7 +13,8 @@ class Geometry_ConeFrustum : public Geometry_Shape
 public:
     // 使用底面半径、顶面半径和完整高度创建标准圆锥台，两个半径允许其中一个为零。
     Geometry_ConeFrustum(double bottomRadius, double topRadius, double height);
-
+    // 通过侵入式引用计数管理标准圆锥台生命周期。
+    ~Geometry_ConeFrustum() override = default;
     /// 几何参数
 
     // 返回位于局部Z负方向底面的半径。
@@ -46,8 +47,7 @@ public:
     ShapeRelation classifyLocalBounds(const Bounds3& bounds) const override;
 
 protected:
-    // 通过侵入式引用计数管理标准圆锥台生命周期。
-    ~Geometry_ConeFrustum() override = default;
+
 
 private:
     double m_bottomRadius; // 位于局部Z负方向底面的半径。

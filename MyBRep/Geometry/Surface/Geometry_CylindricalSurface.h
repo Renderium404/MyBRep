@@ -18,7 +18,8 @@ public:
                       const MyMath::Vector3& xDir, const MyMath::Vector3& yDir);
     // 使用指定有效正交坐标系的原点、X/Y轴和正半径创建无限圆柱面。
     Geometry_CylindricalSurface(const MyMath::CoordinateSystem& coordinateSystem, double radius);
-
+    // 通过侵入式引用计数管理圆柱面几何生命周期。
+    ~Geometry_CylindricalSurface() override = default;
     /// 圆柱几何数据
 
     // 返回V参数为0时对应的圆柱轴参考点。
@@ -89,8 +90,7 @@ public:
     MyMath::Vector3 normalAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理圆柱面几何生命周期。
-    ~Geometry_CylindricalSurface() override = default;
+
 
 private:
     MyMath::Vector3 m_axisOrigin; // V参数为0时对应的圆柱轴参考点。

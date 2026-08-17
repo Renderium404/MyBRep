@@ -30,13 +30,13 @@ private:
     // 保存一条Edge在某个完整参数曲面上的二维曲线表示。
     struct CurveOnSurfaceRepresentation
     {
-        Foundation::RefPtr<const Geometry_Surface> surface; // 当前二维表示所属的完整参数曲面。
-        Foundation::RefPtr<const Geometry_Curve2D> firstCurve; // 普通表示或seam第一侧使用的二维参数曲线。
-        double firstCurveFirstParameter; // firstCurve对应TEdge Forward起点的二维曲线参数。
-        double firstCurveLastParameter; // firstCurve对应TEdge Forward终点的二维曲线参数。
+        Foundation::RefPtr<const Geometry_Surface> surface;     // 当前二维表示所属的完整参数曲面。
+        Foundation::RefPtr<const Geometry_Curve2D> firstCurve;  // 普通表示或seam第一侧使用的二维参数曲线。
+        double firstCurveFirstParameter;                        // firstCurve对应TEdge Forward起点的二维曲线参数。
+        double firstCurveLastParameter;                         // firstCurve对应TEdge Forward终点的二维曲线参数。
         Foundation::RefPtr<const Geometry_Curve2D> secondCurve; // seam第二侧二维参数曲线，普通表示为空。
-        double secondCurveFirstParameter; // secondCurve对应TEdge Forward起点的二维曲线参数。
-        double secondCurveLastParameter; // secondCurve对应TEdge Forward终点的二维曲线参数。
+        double secondCurveFirstParameter;                       // secondCurve对应TEdge Forward起点的二维曲线参数。
+        double secondCurveLastParameter;                        // secondCurve对应TEdge Forward终点的二维曲线参数。
     };
 
 public:

@@ -12,7 +12,8 @@ class Geometry_Line : public Geometry_Curve
 public:
     // 使用有限参数原点和有限非零方向创建无限直线，输入方向会规范化为单位方向。
     Geometry_Line(const MyMath::Vector3& origin, const MyMath::Vector3& direction);
-
+    // 通过侵入式引用计数管理直线几何生命周期。
+    ~Geometry_Line() override = default;
     /// 直线数据
 
     // 返回参数值为0时对应的直线原点。
@@ -49,8 +50,7 @@ public:
     MyMath::Vector3 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理直线几何生命周期。
-    ~Geometry_Line() override = default;
+
 
 private:
     MyMath::Vector3 m_origin; // 参数值为0时对应的直线原点。

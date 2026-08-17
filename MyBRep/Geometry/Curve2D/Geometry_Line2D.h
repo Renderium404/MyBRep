@@ -12,7 +12,8 @@ class Geometry_Line2D : public Geometry_Curve2D
 public:
     // 使用参数原点和非零方向创建无限二维直线，输入方向会规范化为单位方向。
     Geometry_Line2D(const MyMath::Vector2& origin, const MyMath::Vector2& direction);
-
+    // 通过侵入式引用计数管理二维直线几何生命周期。
+    ~Geometry_Line2D() override = default;
     /// 直线数据
 
     // 返回参数值为0时对应的二维直线原点。
@@ -49,8 +50,7 @@ public:
     MyMath::Vector2 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理二维直线几何生命周期。
-    ~Geometry_Line2D() override = default;
+
 
 private:
     MyMath::Vector2 m_origin; // 参数值为0时对应的二维直线原点。

@@ -9,23 +9,19 @@ Topology_Face::Topology_Face()
 {
 }
 
-Topology_Face::Topology_Face(const Foundation::RefPtr<const Geometry_Surface>& geometry,
-                             const std::vector<Topology_Wire>& wires)
-    : Topology_Object(Foundation::RefPtr<Topology_TObject>(
-                          new Topology_TFace(geometry, wires)),
-                      Topology_Orientation::Forward)
+Topology_Face::Topology_Face(const Foundation::RefPtr<const Geometry_Surface>& geometry,const std::vector<Topology_Wire>& wires)
+    : Topology_Object(Foundation::RefPtr<Topology_TObject>(new Topology_TFace(geometry, wires))
+    ,Topology_Orientation::Forward)
 {
 }
 
 Topology_Face::Topology_Face(const Foundation::RefPtr<const Geometry_Surface>& geometry)
-    : Topology_Object(Foundation::RefPtr<Topology_TObject>(
-                          new Topology_TFace(geometry, std::vector<Topology_Wire>())),
-                      Topology_Orientation::Forward)
+    : Topology_Object(Foundation::RefPtr<Topology_TObject>(new Topology_TFace(geometry, std::vector<Topology_Wire>()))
+    ,Topology_Orientation::Forward)
 {
 }
 
-Topology_Face::Topology_Face(const Foundation::RefPtr<Topology_TObject>& object,
-                             Topology_Orientation orientation)
+Topology_Face::Topology_Face(const Foundation::RefPtr<Topology_TObject>& object,Topology_Orientation orientation)
     : Topology_Object(object, orientation)
 {
 }

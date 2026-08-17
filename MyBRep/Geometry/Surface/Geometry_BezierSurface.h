@@ -17,7 +17,8 @@ public:
     Geometry_BezierSurface(std::size_t uControlPointCount,
                            std::size_t vControlPointCount,
                            const std::vector<MyMath::Vector3>& controlPoints);
-
+    // 通过侵入式引用计数管理Bezier曲面几何生命周期。
+    ~Geometry_BezierSurface() override = default;
     /// 控制数据
 
     // 返回U方向控制点数量。
@@ -85,8 +86,7 @@ public:
     MyMath::Vector3 secondDerivativeVVAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理Bezier曲面几何生命周期。
-    ~Geometry_BezierSurface() override = default;
+
 
 private:
     // 返回展平控制点序列中指定U/V索引对应的位置。

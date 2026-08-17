@@ -21,7 +21,8 @@ public:
                             const std::vector<MyMath::Vector3>& controlPoints,
                             const std::vector<double>& uKnots,
                             const std::vector<double>& vKnots);
-
+    // 通过侵入式引用计数管理B样条曲面几何生命周期。
+    ~Geometry_BSplineSurface() override = default;
     /// 样条数据
 
     // 返回U方向B样条次数。
@@ -101,8 +102,7 @@ public:
     MyMath::Vector3 secondDerivativeVVAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理B样条曲面几何生命周期。
-    ~Geometry_BSplineSurface() override = default;
+
 
 private:
     // 返回展平控制点序列中指定U/V索引对应的位置。

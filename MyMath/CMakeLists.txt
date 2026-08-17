@@ -39,14 +39,14 @@ add_library(MyMath STATIC
     ${MYMATH_HEADER_FILES}
 )
 
-# 提供带命名空间的目标别名。
-add_library(MySimulation::MyMath ALIAS MyMath)
 
 # 对外公开数学库头文件目录。
 target_include_directories(MyMath PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.."   # 公开给外部
 )
-
+target_include_directories(MyMath PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"      # 仅供内部编译使用
+)
 # 设置数学库编译属性。
 set_target_properties(MyMath PROPERTIES
     CXX_STANDARD 11

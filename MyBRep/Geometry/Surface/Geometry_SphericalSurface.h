@@ -18,7 +18,8 @@ public:
                     const MyMath::Vector3& xDir, const MyMath::Vector3& yDir);
     // 使用指定有效正交坐标系的原点、X/Y轴和正半径创建完整球面。
     Geometry_SphericalSurface(const MyMath::CoordinateSystem& coordinateSystem, double radius);
-
+    // 通过侵入式引用计数管理球面几何生命周期。
+    ~Geometry_SphericalSurface() override = default;
     /// 球面几何数据
 
     // 返回球心。
@@ -89,8 +90,7 @@ public:
     MyMath::Vector3 normalAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理球面几何生命周期。
-    ~Geometry_SphericalSurface() override = default;
+
 
 private:
     MyMath::Vector3 m_center;       // 球心。

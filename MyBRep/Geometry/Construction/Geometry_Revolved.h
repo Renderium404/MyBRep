@@ -26,12 +26,16 @@ public:
         {
         }
 
-        Foundation::RefPtr<const Geometry_Curve> curve; // 当前母线段引用的不可变完整参数曲线。 double firstParameter; // 当前母线段起点参数。 double lastParameter; // 当前母线段终点参数，允许小于firstParameter表示反向使用。 };
+        Foundation::RefPtr<const Geometry_Curve> curve; // 当前母线段引用的不可变完整参数曲线。
+        double firstParameter; // 当前母线段起点参数。
+        double lastParameter; // 当前母线段终点参数，允许小于firstParameter表示反向使用。
+    };
 
 public:
     // 使用有序闭合有限母线段和几何容差创建绕局部Z轴完整旋转的连续实体。
     Geometry_Revolved(const std::vector<ProfileSegment>& profileSegments, double profileTolerance);
-
+    // 通过侵入式引用计数管理回转连续体几何生命周期。
+    ~Geometry_Revolved() override = default;
     /// 母线几何数据
 
     // 返回闭合母线包含的有限曲线段数量。
@@ -71,8 +75,7 @@ public:
     ShapeRelation classifyLocalBoundsFast(const MyMath::Vector3& center, const MyMath::Vector3& extent) const override;
 
 protected:
-    // 通过侵入式引用计数管理回转连续体几何生命周期。
-    ~Geometry_Revolved() override = default;
+
 
 private:
     // 校验全部有限母线段的数据、平面约束、闭合连接关系和单侧径向约束。
@@ -93,8 +96,12 @@ private:
     ShapeRelation classifyRange(const MyMath::Vector3& minimum, const MyMath::Vector3& maximum) const;
 
 private:
-    std::vector<ProfileSegment> m_profileSegments; // 按轮廓方向排列的有限母线段。 double m_profileTolerance; // 母线连接、平面和边界判断使用的几何容差。 Bounds3 m_profileBounds; // 母线区域在局部XY平面中的轴对齐包围盒。
-        double m_profileSignedArea; // 闭合母线区域的有符号面积。 double m_radialSign; // 母线X映射到非负旋转半径时使用的方向符号。 };
+    std::vector<ProfileSegment> m_profileSegments; // 按轮廓方向排列的有限母线段。
+    double m_profileTolerance; // 母线连接、平面和边界判断使用的几何容差。
+    Bounds3 m_profileBounds; // 母线区域在局部XY平面中的轴对齐包围盒。
+    double m_profileSignedArea; // 闭合母线区域的有符号面积。
+    double m_radialSign; // 母线X映射到非负旋转半径时使用的方向符号。
+};
 
 }
 

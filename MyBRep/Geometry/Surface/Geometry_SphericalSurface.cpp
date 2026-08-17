@@ -83,7 +83,7 @@ double Geometry_SphericalSurface::radius() const
 
 SurfaceKind Geometry_SphericalSurface::kind() const
 {
-    return SurfaceKind::Sphere;
+    return SurfaceKind::Spherical;
 }
 
 /// U定义域

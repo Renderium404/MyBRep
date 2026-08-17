@@ -125,6 +125,7 @@ std::vector<Topology_Edge> splitEdge(const Topology_Edge& edge, const std::vecto
     std::vector<Topology_Edge> forwardResults;
     forwardResults.reserve(boundaries.size() - 1);
 
+    //构造所属曲面的分割子边
     for (std::size_t index = 0; index + 1 < boundaries.size(); ++index)
     {
         const double firstNormalizedParameter = boundaries[index];

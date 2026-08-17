@@ -15,7 +15,8 @@ class Geometry_Bezier : public Geometry_Curve
 public:
     // 使用至少两个有限控制点创建Bezier曲线，控制点不能全部重合。
     explicit Geometry_Bezier(const std::vector<MyMath::Vector3>& controlPoints);
-
+    // 通过侵入式引用计数管理Bezier曲线几何生命周期。
+    ~Geometry_Bezier() override = default;
     /// 控制数据
 
     // 返回控制点数量。
@@ -56,8 +57,7 @@ public:
     MyMath::Vector3 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理Bezier曲线几何生命周期。
-    ~Geometry_Bezier() override = default;
+
 
 private:
     // 使用de Casteljau算法对给定控制点序列进行参数求值。

@@ -15,25 +15,12 @@ set(CMAKE_AUTOMOC ON)       #是否自动运行 Qt 的 moc 工具
 set(CMAKE_AUTOUIC ON)       #是否自动使用 Qt 的 uic 处理 .ui 文件
 set(CMAKE_AUTORCC ON)       #是否自动使用 Qt 的 rcc 处理 .qrc 资源文件
 
-
-# 创建名为 MyOpenGL 的可执行程序 Target
-# 当前 Target 包含 main.cpp
-add_executable(${PROJECT_NAME}
-    main.cpp
-)
-
-# 为 MyOpenGL Target 添加链接依赖
-# PRIVATE：Qt5::Widgets 仅作为当前 Target 的依赖
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-    Qt5::Widgets
-)
-
 # ============================================================
 # 新框架
 # ============================================================
+add_subdirectory(MyMath)
 
-add_subdirectory((MyBRep)
+add_subdirectory(MyBRep)
 
 # ============================================================
 # 测试沙盒

@@ -17,7 +17,8 @@ public:
     Geometry_BSpline(std::size_t degree,
                      const std::vector<MyMath::Vector3>& controlPoints,
                      const std::vector<double>& knots);
-
+    // 通过侵入式引用计数管理B样条曲线几何生命周期。
+    ~Geometry_BSpline() override = default;
     /// 样条数据
 
     // 返回B样条曲线次数。
@@ -64,8 +65,7 @@ public:
     MyMath::Vector3 secondDerivativeAt(double parameter) const override;
 
 protected:
-    // 通过侵入式引用计数管理B样条曲线几何生命周期。
-    ~Geometry_BSpline() override = default;
+
 
 private:
     // 返回指定参数所在的有效节点跨度编号，定义域右端点归属于最后有效跨度。

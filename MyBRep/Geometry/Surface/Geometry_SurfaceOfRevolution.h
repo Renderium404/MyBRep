@@ -16,7 +16,8 @@ public:
     Geometry_SurfaceOfRevolution(const Foundation::RefPtr<const Geometry_Curve>& profileCurve,
                                  const MyMath::Vector3& axisOrigin,
                                  const MyMath::Vector3& axisDirection);
-
+    // 通过侵入式引用计数管理旋转曲面几何生命周期。
+    ~Geometry_SurfaceOfRevolution() override = default;
     /// 旋转几何数据
 
     // 返回旋转曲面引用的不可变母线曲线。
@@ -80,8 +81,7 @@ public:
     MyMath::Vector3 secondDerivativeVVAt(double u, double v) const override;
 
 protected:
-    // 通过侵入式引用计数管理旋转曲面几何生命周期。
-    ~Geometry_SurfaceOfRevolution() override = default;
+
 
 private:
     // 使用Rodrigues公式将自由向量绕单位旋转轴旋转指定弧度。
