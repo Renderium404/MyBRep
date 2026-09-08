@@ -37,6 +37,13 @@ foreach(SOURCE_FILE IN LISTS SANDBOX_SRC)
         MyBRep
     )
 
+    #MyBRepOpenGL相关测试额外链接显示适配库。
+    if(TARGET_NAME MATCHES "^my_brep_opengl_")
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            MyBRepOpenGL
+        )
+    endif()
+
     #输出信息
     message(STATUS
         "Sandbox: ${TARGET_NAME}"

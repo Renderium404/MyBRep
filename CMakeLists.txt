@@ -1,26 +1,39 @@
 # CMake 最低版本要求
 cmake_minimum_required(VERSION 3.5)
 
-# 定义项目，PROJECT_NAME 的值将为 MyBRep
+# 定义项目
 project(MyBRep)
 
-# 查找 Qt5：
-# 要求版本 >= 5.8
-# REQUIRED：找不到时直接终止 CMake 配置
-# COMPONENTS Widgets：需要 Qt Widgets 模块
+# 查找 Qt5
 find_package(Qt5 5.8 REQUIRED COMPONENTS Widgets)
 
-
-set(CMAKE_AUTOMOC ON)       #是否自动运行 Qt 的 moc 工具
-set(CMAKE_AUTOUIC ON)       #是否自动使用 Qt 的 uic 处理 .ui 文件
-set(CMAKE_AUTORCC ON)       #是否自动使用 Qt 的 rcc 处理 .qrc 资源文件
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
 # ============================================================
-# 新框架
+# 数学库
 # ============================================================
+
 add_subdirectory(MyMath)
 
+# ============================================================
+# B-Rep
+# ============================================================
+
 add_subdirectory(MyBRep)
+
+# ============================================================
+# MyOpenGL
+# ============================================================
+
+add_subdirectory(MyOpenGL)
+
+# ============================================================
+# MyBRep OpenGL 显示适配层
+# ============================================================
+
+add_subdirectory(MyBRepOpenGL)
 
 # ============================================================
 # 测试沙盒
