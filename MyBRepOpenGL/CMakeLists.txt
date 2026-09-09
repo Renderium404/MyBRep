@@ -4,6 +4,12 @@
 # ============================================================
 
 set(MYBREP_OPENGL_SRC
+    Builder/BRepFaceBuilder.cpp
+    Builder/BRepFaceBuilder.h
+    Builder/BRepShellBuilder.cpp
+    Builder/BRepShellBuilder.h
+    Builder/BRepSolidBuilder.cpp
+    Builder/BRepSolidBuilder.h
     Builder/BRepWireframeBuilder.cpp
     Builder/BRepWireframeBuilder.h
 

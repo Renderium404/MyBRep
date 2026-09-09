@@ -16,13 +16,13 @@ foreach(SOURCE_FILE IN LISTS SANDBOX_SRC)
         MAKE_C_IDENTIFIER
         "${SOURCE_NAME}"
         TARGET_NAME
-    )
+    ) 
     #检查是否已存在同名目标，若有则报错，避免重复定义
     if(TARGET ${TARGET_NAME})
         message(FATAL_ERROR
             "Duplicate sandbox target name: ${TARGET_NAME}\n"
             "Source: ${SOURCE_FILE}"
-        )
+        ) 
     endif()
     #创建可执行文件
     add_executable(${TARGET_NAME}

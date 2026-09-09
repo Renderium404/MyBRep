@@ -129,6 +129,7 @@ bool containsSameEdge(const std::vector<MyBRep::Topology_Edge>& edges, const MyB
     return false;
 }
 
+
 void appendUniqueEdge(std::vector<MyBRep::Topology_Edge>& edges, const MyBRep::Topology_Edge& edge)
 {
     if (!containsSameEdge(edges, edge))
