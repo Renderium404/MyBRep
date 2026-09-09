@@ -3,8 +3,10 @@
 
 #include "MyBRep/Mesh/ConicalFaceMesher.h"
 #include "MyBRep/Mesh/CylindricalFaceMesher.h"
+#include "MyBRep/Mesh/ExtrudedFaceMesher.h"
 #include "MyBRep/Mesh/FaceMesh.h"
 #include "MyBRep/Mesh/PlanarFaceMesher.h"
+#include "MyBRep/Mesh/RevolvedFaceMesher.h"
 #include "MyBRep/Mesh/SphericalFaceMesher.h"
 #include "MyBRep/Topology/Face/Topology_Face.h"
 
@@ -12,7 +14,7 @@ namespace MyBRep
 {
 
 // Face统一三角化参数。
-// 各Surface类型保留自己的离散参数，避免把不同参数度量、曲率和奇点控制强行合并为一组公共字段。
+// 各Surface类型保留自己的离散参数，避免把不同参数度量、曲率、周期和奇点控制强行合并为一组公共字段。
 struct FaceMeshOptions
 {
     FaceMeshOptions();
@@ -24,6 +26,8 @@ struct FaceMeshOptions
     CylindricalFaceMeshOptions cylindrical;   // 圆柱Face三角化参数。
     SphericalFaceMeshOptions spherical;       // 球面Face三角化参数。
     ConicalFaceMeshOptions conical;           // 圆锥Face三角化参数。
+    ExtrudedFaceMeshOptions extruded;         // 拉伸Face三角化参数。
+    RevolvedFaceMeshOptions revolved;         // 旋转Face三角化参数。
 };
 
 // Topology_Face统一三角化入口。

@@ -35,7 +35,10 @@ MyMath::Vector3 transformedNormal(const MyMath::Vector3& normal, const MyMath::M
     return result;
 }
 
-BufferGeometry* buildGeometry(const MyBRep::Topology_Face& face, const MyMath::Matrix4& localToWorld, const QString& name, const MyBRep::Display::BRepFaceBuildOptions& options)
+BufferGeometry* buildGeometry(const MyBRep::Topology_Face& face,
+                              const MyMath::Matrix4& localToWorld,
+                              const QString& name,
+                              const MyBRep::Display::BRepFaceBuildOptions& options)
 {
     MYBREP_ASSERT_MESSAGE(localToWorld.isAffine() && localToWorld.isInvertible(), "BRep Face transform must be an invertible affine Matrix4.");
     MYBREP_ASSERT_MESSAGE(options.isValid(), "BRep Face build options are invalid.");
@@ -50,6 +53,8 @@ BufferGeometry* buildGeometry(const MyBRep::Topology_Face& face, const MyMath::M
     meshOptions.cylindrical = options.cylindricalMeshing;
     meshOptions.spherical = options.sphericalMeshing;
     meshOptions.conical = options.conicalMeshing;
+    meshOptions.extruded = options.extrudedMeshing;
+    meshOptions.revolved = options.revolvedMeshing;
 
     const MyBRep::FaceMesh mesh = MyBRep::FaceMesher::mesh(face, meshOptions);
 
@@ -132,7 +137,12 @@ BRepFaceBuildOptions::BRepFaceBuildOptions()
 
 bool BRepFaceBuildOptions::isValid() const
 {
-    return meshing.isValid() && cylindricalMeshing.isValid() && sphericalMeshing.isValid() && conicalMeshing.isValid();
+    return meshing.isValid() &&
+           cylindricalMeshing.isValid() &&
+           sphericalMeshing.isValid() &&
+           conicalMeshing.isValid() &&
+           extrudedMeshing.isValid() &&
+           revolvedMeshing.isValid();
 }
 
 BufferGeometry* BRepFaceBuilder::build(const Topology_Face& face, const QString& name, const BRepFaceBuildOptions& options)
@@ -140,7 +150,10 @@ BufferGeometry* BRepFaceBuilder::build(const Topology_Face& face, const QString&
     return build(face, MyMath::Matrix4::identity(), name, options);
 }
 
-BufferGeometry* BRepFaceBuilder::build(const Topology_Face& face, const MyMath::Matrix4& localToWorld, const QString& name, const BRepFaceBuildOptions& options)
+BufferGeometry* BRepFaceBuilder::build(const Topology_Face& face,
+                                       const MyMath::Matrix4& localToWorld,
+                                       const QString& name,
+                                       const BRepFaceBuildOptions& options)
 {
     return buildGeometry(face, localToWorld, name, options);
 }

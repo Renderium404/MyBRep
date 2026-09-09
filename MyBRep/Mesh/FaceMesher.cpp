@@ -11,7 +11,12 @@ FaceMeshOptions::FaceMeshOptions()
 
 bool FaceMeshOptions::isValid() const
 {
-    return planar.isValid() && cylindrical.isValid() && spherical.isValid() && conical.isValid();
+    return planar.isValid() &&
+           cylindrical.isValid() &&
+           spherical.isValid() &&
+           conical.isValid() &&
+           extruded.isValid() &&
+           revolved.isValid();
 }
 
 bool FaceMesher::canMesh(const Topology_Face& face)
@@ -34,6 +39,12 @@ bool FaceMesher::canMesh(const Topology_Face& face)
 
     case SurfaceKind::Conical:
         return ConicalFaceMesher::canMesh(face);
+
+    case SurfaceKind::Extrusion:
+        return ExtrudedFaceMesher::canMesh(face);
+
+    case SurfaceKind::Revolution:
+        return RevolvedFaceMesher::canMesh(face);
 
     default:
         return false;
@@ -60,6 +71,12 @@ FaceMesh FaceMesher::mesh(const Topology_Face& face, const FaceMeshOptions& opti
 
     case SurfaceKind::Conical:
         return ConicalFaceMesher::mesh(face, options.conical);
+
+    case SurfaceKind::Extrusion:
+        return ExtrudedFaceMesher::mesh(face, options.extruded);
+
+    case SurfaceKind::Revolution:
+        return RevolvedFaceMesher::mesh(face, options.revolved);
 
     default:
         return FaceMesh();

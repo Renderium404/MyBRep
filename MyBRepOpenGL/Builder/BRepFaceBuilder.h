@@ -26,6 +26,8 @@ struct BRepFaceBuildOptions
     CylindricalFaceMeshOptions cylindricalMeshing;   // 圆柱Face三角化参数。
     SphericalFaceMeshOptions sphericalMeshing;       // 球面Face三角化参数。
     ConicalFaceMeshOptions conicalMeshing;           // 圆锥Face三角化参数。
+    ExtrudedFaceMeshOptions extrudedMeshing;         // 拉伸Face三角化参数。
+    RevolvedFaceMeshOptions revolvedMeshing;         // 旋转Face三角化参数。
 };
 
 // 将MyBRep Topology_Face转换为包含Position和Normal的MyOpenGL三角形BufferGeometry。
