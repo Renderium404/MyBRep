@@ -15,7 +15,8 @@ struct RevolvedFaceMeshOptions : public ParametricFaceMeshOptions
 };
 
 // U周期旋转Surface Face Mesher。
-// v1支持普通面片、跨seam面片和完整2π参数带；触碰旋转轴的参数退化区域留给v2处理。
+// v2支持普通面片、U/V周期、完整周期带以及母线以一阶非退化方式触碰旋转轴的边界参数奇点。
+// 轴奇点处保留不同U参数的同位置FaceMesh顶点，并使用母线一阶切向解析计算极限法向。
 class RevolvedFaceMesher
 {
 public:

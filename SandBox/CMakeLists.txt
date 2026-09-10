@@ -10,19 +10,19 @@ foreach(SOURCE_FILE IN LISTS SANDBOX_SRC)
         SOURCE_NAME
         "${SOURCE_FILE}"
         NAME_WE
-    )
+    )  
     #生成合法目标名,将文件名转换为合法的 C 标识符（例如将非法字符转为下划线），确保 CMake 目标名有效
     string(
         MAKE_C_IDENTIFIER
         "${SOURCE_NAME}"
         TARGET_NAME
-    ) 
+    )
     #检查是否已存在同名目标，若有则报错，避免重复定义
     if(TARGET ${TARGET_NAME})
         message(FATAL_ERROR
             "Duplicate sandbox target name: ${TARGET_NAME}\n"
             "Source: ${SOURCE_FILE}"
-        ) 
+        )
     endif()
     #创建可执行文件
     add_executable(${TARGET_NAME}

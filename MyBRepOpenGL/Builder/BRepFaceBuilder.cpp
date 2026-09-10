@@ -55,6 +55,8 @@ BufferGeometry* buildGeometry(const MyBRep::Topology_Face& face,
     meshOptions.conical = options.conicalMeshing;
     meshOptions.extruded = options.extrudedMeshing;
     meshOptions.revolved = options.revolvedMeshing;
+    meshOptions.bezier = options.bezierMeshing;
+    meshOptions.bspline = options.bsplineMeshing;
 
     const MyBRep::FaceMesh mesh = MyBRep::FaceMesher::mesh(face, meshOptions);
 
@@ -142,7 +144,9 @@ bool BRepFaceBuildOptions::isValid() const
            sphericalMeshing.isValid() &&
            conicalMeshing.isValid() &&
            extrudedMeshing.isValid() &&
-           revolvedMeshing.isValid();
+           revolvedMeshing.isValid() &&
+           bezierMeshing.isValid() &&
+           bsplineMeshing.isValid();
 }
 
 BufferGeometry* BRepFaceBuilder::build(const Topology_Face& face, const QString& name, const BRepFaceBuildOptions& options)

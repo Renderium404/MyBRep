@@ -1,6 +1,8 @@
 #ifndef MYBREP_MESH_FACEMESHER_H
 #define MYBREP_MESH_FACEMESHER_H
 
+#include "MyBRep/Mesh/BSplineFaceMesher.h"
+#include "MyBRep/Mesh/BezierFaceMesher.h"
 #include "MyBRep/Mesh/ConicalFaceMesher.h"
 #include "MyBRep/Mesh/CylindricalFaceMesher.h"
 #include "MyBRep/Mesh/ExtrudedFaceMesher.h"
@@ -28,6 +30,8 @@ struct FaceMeshOptions
     ConicalFaceMeshOptions conical;           // 圆锥Face三角化参数。
     ExtrudedFaceMeshOptions extruded;         // 拉伸Face三角化参数。
     RevolvedFaceMeshOptions revolved;         // 旋转Face三角化参数。
+    BezierFaceMeshOptions bezier;             // Bezier自由曲面Face三角化参数。
+    BSplineFaceMeshOptions bspline;           // B-Spline自由曲面Face三角化参数。
 };
 
 // Topology_Face统一三角化入口。

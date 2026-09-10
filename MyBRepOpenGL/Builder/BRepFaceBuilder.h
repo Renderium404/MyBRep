@@ -28,6 +28,8 @@ struct BRepFaceBuildOptions
     ConicalFaceMeshOptions conicalMeshing;           // 圆锥Face三角化参数。
     ExtrudedFaceMeshOptions extrudedMeshing;         // 拉伸Face三角化参数。
     RevolvedFaceMeshOptions revolvedMeshing;         // 旋转Face三角化参数。
+    BezierFaceMeshOptions bezierMeshing;             // Bezier自由曲面Face三角化参数。
+    BSplineFaceMeshOptions bsplineMeshing;           // B-Spline自由曲面Face三角化参数。
 };
 
 // 将MyBRep Topology_Face转换为包含Position和Normal的MyOpenGL三角形BufferGeometry。
@@ -39,7 +41,8 @@ public:
     static BufferGeometry* build(const Topology_Face& face, const QString& name, const BRepFaceBuildOptions& options = BRepFaceBuildOptions());
 
     // 使用指定可逆仿射放置构建Face表面Geometry，不支持的Surface类型或非法放置返回空指针。
-    static BufferGeometry* build(const Topology_Face& face, const MyMath::Matrix4& localToWorld, const QString& name, const BRepFaceBuildOptions& options = BRepFaceBuildOptions());
+    static BufferGeometry* build(const Topology_Face& face, const MyMath::Matrix4& localToWorld, const QString& name,
+                                 const BRepFaceBuildOptions& options = BRepFaceBuildOptions());
 };
 
 }

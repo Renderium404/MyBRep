@@ -16,7 +16,9 @@ bool FaceMeshOptions::isValid() const
            spherical.isValid() &&
            conical.isValid() &&
            extruded.isValid() &&
-           revolved.isValid();
+           revolved.isValid() &&
+           bezier.isValid() &&
+           bspline.isValid();
 }
 
 bool FaceMesher::canMesh(const Topology_Face& face)
@@ -45,6 +47,12 @@ bool FaceMesher::canMesh(const Topology_Face& face)
 
     case SurfaceKind::Revolution:
         return RevolvedFaceMesher::canMesh(face);
+
+    case SurfaceKind::Bezier:
+        return BezierFaceMesher::canMesh(face);
+
+    case SurfaceKind::BSpline:
+        return BSplineFaceMesher::canMesh(face);
 
     default:
         return false;
@@ -77,6 +85,12 @@ FaceMesh FaceMesher::mesh(const Topology_Face& face, const FaceMeshOptions& opti
 
     case SurfaceKind::Revolution:
         return RevolvedFaceMesher::mesh(face, options.revolved);
+
+    case SurfaceKind::Bezier:
+        return BezierFaceMesher::mesh(face, options.bezier);
+
+    case SurfaceKind::BSpline:
+        return BSplineFaceMesher::mesh(face, options.bspline);
 
     default:
         return FaceMesh();

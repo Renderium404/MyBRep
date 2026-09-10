@@ -10,6 +10,7 @@
 #include "MyBRepOpenGL/Builder/BRepWireframeBuilder.h"
 #include "MyOpenGL/Item/AxisAlignedBoundingBox.h"
 #include "MyOpenGL/Item/RenderPart.h"
+#include "MyOpenGL/Light/Light.h"
 #include "MyOpenGL/Material/Material.h"
 #include "MyOpenGL/Render/MyOpenGLContext.h"
 #include "MyOpenGL/Resource/BufferGeometry.h"
@@ -54,6 +55,56 @@ AxisAlignedBoundingBox geometryBounds(const BufferGeometry& geometry)
     return bounds;
 }
 
+bool createDefaultBRepLighting(LightManager& lightManager)
+{
+    Light* ambientLight = lightManager.createLight("BRepAmbientLight");
+
+    if (ambientLight == 0)
+    {
+        return false;
+    }
+
+    ambientLight->setAmbient();
+
+    if (!ambientLight->setColor(QVector3D(1.0f, 1.0f, 1.0f)) ||
+        !ambientLight->setIntensity(0.18f))
+    {
+        return false;
+    }
+
+    Light* keyLight = lightManager.createLight("BRepKeyLight");
+
+    if (keyLight == 0)
+    {
+        return false;
+    }
+
+    // Directional Light保存的是光线传播方向；Renderer内部使用-direction作为指向光源方向。
+    if (!keyLight->setDirectional(QVector3D(-0.45f, -0.35f, -1.0f)) ||
+        !keyLight->setColor(QVector3D(1.0f, 0.97f, 0.92f)) ||
+        !keyLight->setIntensity(0.78f))
+    {
+        return false;
+    }
+
+    Light* fillLight = lightManager.createLight("BRepFillLight");
+
+    if (fillLight == 0)
+    {
+        return false;
+    }
+
+    // 从主光相反侧提供较弱冷色补光，保留暗部层次但避免背光区域完全发黑。
+    if (!fillLight->setDirectional(QVector3D(0.65f, -0.10f, -0.60f)) ||
+        !fillLight->setColor(QVector3D(0.72f, 0.84f, 1.0f)) ||
+        !fillLight->setIntensity(0.24f))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 }
 
 namespace MyBRep
@@ -65,6 +116,10 @@ BRepViewerWidget::BRepViewerWidget(QWidget* parent)
     : OpenGLViewerWidget(parent)
     , m_nextDisplayId(1)
 {
+    if (!createDefaultBRepLighting(lightManager()))
+    {
+        qWarning() << "BRepViewerWidget construction: unable to create complete default B-Rep lighting.";
+    }
 }
 
 BRepViewerWidget::~BRepViewerWidget()

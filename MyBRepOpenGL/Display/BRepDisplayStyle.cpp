@@ -29,9 +29,9 @@ namespace Display
 {
 
 BRepDisplayStyle::BRepDisplayStyle()
-    : surfaceColor(0.72f, 0.76f, 0.82f, 1.0f) // 默认使用中性浅灰蓝，便于与深色B-Rep边界区分。
+    : surfaceColor(0.72f, 0.76f, 0.82f, 1.0f) // 默认使用中性浅灰蓝，便于观察光照产生的曲面明暗变化。
     , wireColor(0.08f, 0.08f, 0.08f, 1.0f)    // 默认使用深灰边界，保证浅色表面上的轮廓辨识度。
-    , surfaceLightingEnabled(false)            // 第一阶段默认关闭光照，保证没有场景灯光时Face仍然稳定可见。
+    , surfaceLightingEnabled(true)             // BRepViewerWidget提供默认场景灯光，因此表面默认启用法向漫反射。
 {
 }
 

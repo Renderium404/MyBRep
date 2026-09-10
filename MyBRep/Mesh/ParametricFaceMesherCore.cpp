@@ -482,6 +482,26 @@ bool alignPeriodicCoordinate(std::vector<MyMath::Vector2>& edgePoints, const MyM
     return true;
 }
 
+bool singularParametersMeet(const MyBRep::Geometry_Surface& surface,
+                            const MyMath::Vector2& first,
+                            const MyMath::Vector2& second,
+                            const MyBRep::ParametricFaceMeshPolicy& policy,
+                            double tolerance)
+{
+    return policy.singularityHandler &&
+           policy.singularityHandler->parametersMeetAtSingularity(surface, first, second, tolerance);
+}
+
+bool parametersConnect(const MyBRep::Geometry_Surface& surface,
+                       const MyMath::Vector2& first,
+                       const MyMath::Vector2& second,
+                       const MyBRep::ParametricFaceMeshPolicy& policy,
+                       double tolerance)
+{
+    return pointsEqual(first, second, tolerance) ||
+           singularParametersMeet(surface, first, second, policy, tolerance);
+}
+
 bool alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
                                const MyMath::Vector2& previousPoint,
                                const MyBRep::Geometry_Surface& surface,
@@ -491,6 +511,12 @@ bool alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
     if (edgePoints.empty())
     {
         return false;
+    }
+
+    // 参数奇点处不同周期坐标可以对应同一三维拓扑点，此时必须保留原始UV差异，不能先执行周期平移。
+    if (parametersConnect(surface, previousPoint, edgePoints.front(), policy, tolerance))
+    {
+        return true;
     }
 
     if (policy.periodicU && !alignPeriodicCoordinate(edgePoints, previousPoint, 0, surface.uPeriod()))
@@ -503,7 +529,7 @@ bool alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
         return false;
     }
 
-    return pointsEqual(previousPoint, edgePoints.front(), tolerance);
+    return parametersConnect(surface, previousPoint, edgePoints.front(), policy, tolerance);
 }
 
 bool sampleWire(const MyBRep::Topology_Wire& wire,
@@ -530,7 +556,13 @@ bool sampleWire(const MyBRep::Topology_Wire& wire,
                 return false;
             }
 
-            edgePoints.erase(edgePoints.begin());
+            // 普通连接点在两个Edge中是同一个UV，只保留一份。
+            // 参数奇点处允许不同UV映射到同一个三维拓扑点，此时必须同时保留两侧UV，
+            // 否则会吞掉pole/seam的一侧参数端点，破坏完整参数域及后续pole fan三角化。
+            if (pointsEqual(points.back(), edgePoints.front(), options.geometricTolerance))
+            {
+                edgePoints.erase(edgePoints.begin());
+            }
         }
 
         points.insert(points.end(), edgePoints.begin(), edgePoints.end());
@@ -546,7 +578,7 @@ bool sampleWire(const MyBRep::Topology_Wire& wire,
         return false;
     }
 
-    if (!pointsEqual(points.front(), points.back(), options.geometricTolerance))
+    if (!parametersConnect(surface, points.front(), points.back(), policy, options.geometricTolerance))
     {
         return false;
     }
@@ -1055,6 +1087,19 @@ bool parameterIsRegular(const MyBRep::Geometry_Surface& surface, const MyMath::V
     return MyMath::Vector3::cross(derivativeU, derivativeV).isVector(0.0);
 }
 
+bool parameterIsSingular(const MyBRep::Geometry_Surface& surface,
+                         const MyMath::Vector2& parameter,
+                         const MyBRep::ParametricFaceMeshPolicy& policy,
+                         double tolerance)
+{
+    if (policy.singularityHandler)
+    {
+        return policy.singularityHandler->isSingular(surface, parameter, tolerance);
+    }
+
+    return !parameterIsRegular(surface, parameter);
+}
+
 double surfaceEdgeChordError(const MyBRep::Geometry_Surface& surface,
                              const std::vector<MyMath::Vector2>& vertices,
                              const EdgeKey& edge)
@@ -1075,6 +1120,57 @@ void collectTriangleEdges(const IndexedTriangle& triangle, std::set<EdgeKey>& ed
     edges.insert(EdgeKey(triangle.first, triangle.second));
     edges.insert(EdgeKey(triangle.second, triangle.third));
     edges.insert(EdgeKey(triangle.third, triangle.first));
+}
+
+int splitEdgeCount(const IndexedTriangle& triangle, const std::set<EdgeKey>& splitEdges)
+{
+    int count = 0;
+
+    if (splitEdges.find(EdgeKey(triangle.first, triangle.second)) != splitEdges.end())
+    {
+        ++count;
+    }
+
+    if (splitEdges.find(EdgeKey(triangle.second, triangle.third)) != splitEdges.end())
+    {
+        ++count;
+    }
+
+    if (splitEdges.find(EdgeKey(triangle.third, triangle.first)) != splitEdges.end())
+    {
+        ++count;
+    }
+
+    return count;
+}
+
+void addMissingThirdEdgeForTwoSplitTriangle(const IndexedTriangle& triangle, std::set<EdgeKey>& splitEdges)
+{
+    const EdgeKey edgeAB(triangle.first, triangle.second);
+    const EdgeKey edgeBC(triangle.second, triangle.third);
+    const EdgeKey edgeCA(triangle.third, triangle.first);
+    const bool splitAB = splitEdges.find(edgeAB) != splitEdges.end();
+    const bool splitBC = splitEdges.find(edgeBC) != splitEdges.end();
+    const bool splitCA = splitEdges.find(edgeCA) != splitEdges.end();
+    const int count = static_cast<int>(splitAB) + static_cast<int>(splitBC) + static_cast<int>(splitCA);
+
+    if (count != 2)
+    {
+        return;
+    }
+
+    if (!splitAB)
+    {
+        splitEdges.insert(edgeAB);
+    }
+    else if (!splitBC)
+    {
+        splitEdges.insert(edgeBC);
+    }
+    else
+    {
+        splitEdges.insert(edgeCA);
+    }
 }
 
 unsigned int midpointVertex(const EdgeKey& edge,
@@ -1124,6 +1220,32 @@ bool refineSurfaceOnce(const MyBRep::Geometry_Surface& surface,
         return true;
     }
 
+    // 与已验证的Sphere/Cylinder/Cone细分策略保持一致：
+    // 一个Triangle若恰有两条边需要切分，则补切第三边，并把新增切分向邻接Triangle传播到稳定。
+    // 稳定后每个Triangle只会出现0、1或3条切分边，避免2-edge分裂形成偏斜三角形。
+    bool propagationChanged = true;
+
+    while (propagationChanged)
+    {
+        propagationChanged = false;
+
+        for (std::size_t index = 0; index < triangles.size(); ++index)
+        {
+            if (splitEdgeCount(triangles[index], splitEdges) != 2)
+            {
+                continue;
+            }
+
+            const std::size_t before = splitEdges.size();
+            addMissingThirdEdgeForTwoSplitTriangle(triangles[index], splitEdges);
+
+            if (splitEdges.size() != before)
+            {
+                propagationChanged = true;
+            }
+        }
+    }
+
     changed = true;
     std::map<EdgeKey, unsigned int> midpointIndices;
     std::vector<IndexedTriangle> refined;
@@ -1168,40 +1290,15 @@ bool refineSurfaceOnce(const MyBRep::Geometry_Surface& surface,
             {
                 const unsigned int ca = midpointVertex(edgeCA, vertices, midpointIndices);
                 refined.push_back(IndexedTriangle(a, b, ca));
-                refined.push_back(IndexedTriangle(ca, b, c));
+                refined.push_back(IndexedTriangle(b, c, ca));
             }
 
             continue;
         }
 
-        if (splitCount == 2)
+        if (splitCount != 3)
         {
-            if (!splitAB)
-            {
-                const unsigned int bc = midpointVertex(edgeBC, vertices, midpointIndices);
-                const unsigned int ca = midpointVertex(edgeCA, vertices, midpointIndices);
-                refined.push_back(IndexedTriangle(a, b, ca));
-                refined.push_back(IndexedTriangle(b, bc, ca));
-                refined.push_back(IndexedTriangle(bc, c, ca));
-            }
-            else if (!splitBC)
-            {
-                const unsigned int ab = midpointVertex(edgeAB, vertices, midpointIndices);
-                const unsigned int ca = midpointVertex(edgeCA, vertices, midpointIndices);
-                refined.push_back(IndexedTriangle(a, ab, ca));
-                refined.push_back(IndexedTriangle(ab, b, c));
-                refined.push_back(IndexedTriangle(ab, c, ca));
-            }
-            else
-            {
-                const unsigned int ab = midpointVertex(edgeAB, vertices, midpointIndices);
-                const unsigned int bc = midpointVertex(edgeBC, vertices, midpointIndices);
-                refined.push_back(IndexedTriangle(a, ab, c));
-                refined.push_back(IndexedTriangle(ab, bc, c));
-                refined.push_back(IndexedTriangle(ab, b, bc));
-            }
-
-            continue;
+            return false;
         }
 
         const unsigned int ab = midpointVertex(edgeAB, vertices, midpointIndices);
@@ -1275,24 +1372,115 @@ bool trianglePositionsAreNonDegenerate(const MyBRep::Geometry_Surface& surface,
     return MyMath::Vector3::cross(second - first, third - first).isVector(0.0);
 }
 
+bool triangleUsesVertex(const IndexedTriangle& triangle, unsigned int vertexIndex)
+{
+    return triangle.first == vertexIndex || triangle.second == vertexIndex || triangle.third == vertexIndex;
+}
+
+bool findRegularApproachParameter(unsigned int singularVertexIndex,
+                                  const MyBRep::Geometry_Surface& surface,
+                                  const std::vector<MyMath::Vector2>& parameterVertices,
+                                  const std::vector<IndexedTriangle>& triangles,
+                                  const MyBRep::ParametricFaceMeshPolicy& policy,
+                                  double tolerance,
+                                  MyMath::Vector2& regularApproachParameter)
+{
+    for (std::size_t triangleIndex = 0; triangleIndex < triangles.size(); ++triangleIndex)
+    {
+        const IndexedTriangle& triangle = triangles[triangleIndex];
+
+        if (!triangleUsesVertex(triangle, singularVertexIndex))
+        {
+            continue;
+        }
+
+        const unsigned int candidates[3] = {triangle.first, triangle.second, triangle.third};
+
+        for (int candidateIndex = 0; candidateIndex < 3; ++candidateIndex)
+        {
+            const unsigned int index = candidates[candidateIndex];
+
+            if (index == singularVertexIndex)
+            {
+                continue;
+            }
+
+            if (!parameterIsSingular(surface, parameterVertices[index], policy, tolerance))
+            {
+                regularApproachParameter = parameterVertices[index];
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool triangleContainsSingularParameter(const IndexedTriangle& triangle,
+                                       const MyBRep::Geometry_Surface& surface,
+                                       const std::vector<MyMath::Vector2>& parameterVertices,
+                                       const MyBRep::ParametricFaceMeshPolicy& policy,
+                                       double tolerance)
+{
+    return parameterIsSingular(surface, parameterVertices[triangle.first], policy, tolerance) ||
+           parameterIsSingular(surface, parameterVertices[triangle.second], policy, tolerance) ||
+           parameterIsSingular(surface, parameterVertices[triangle.third], policy, tolerance);
+}
+
+bool evaluateMeshNormal(const MyBRep::Topology_Face& face,
+                        unsigned int vertexIndex,
+                        const std::vector<MyMath::Vector2>& parameterVertices,
+                        const std::vector<IndexedTriangle>& triangles,
+                        const MyBRep::ParametricFaceMeshPolicy& policy,
+                        double tolerance,
+                        MyMath::Vector3& normal)
+{
+    const MyMath::Vector2& parameter = parameterVertices[vertexIndex];
+
+    if (!parameterIsSingular(face.geometry(), parameter, policy, tolerance))
+    {
+        normal = face.normalAt(parameter.x(), parameter.y());
+        return normal.isUnit();
+    }
+
+    if (policy.rejectSingularParameters || !policy.singularityHandler)
+    {
+        return false;
+    }
+
+    MyMath::Vector2 regularApproachParameter;
+
+    if (!findRegularApproachParameter(
+            vertexIndex, face.geometry(), parameterVertices, triangles, policy, tolerance, regularApproachParameter))
+    {
+        return false;
+    }
+
+    return policy.singularityHandler->normalAt(
+               face, parameter, regularApproachParameter, tolerance, normal) &&
+           normal.isUnit();
+}
+
 MyBRep::FaceMesh buildFaceMesh(const MyBRep::Topology_Face& face,
                                const std::vector<MyMath::Vector2>& parameterVertices,
                                const std::vector<IndexedTriangle>& triangles,
-                               const MyBRep::ParametricFaceMeshPolicy& policy)
+                               const MyBRep::ParametricFaceMeshPolicy& policy,
+                               double tolerance)
 {
     MyBRep::FaceMesh result;
 
     for (std::size_t index = 0; index < parameterVertices.size(); ++index)
     {
         const MyMath::Vector2& parameter = parameterVertices[index];
+        const MyMath::Vector3 position = face.geometry().pointAt(parameter.x(), parameter.y());
+        MyMath::Vector3 normal;
 
-        if (policy.rejectSingularParameters && !parameterIsRegular(face.geometry(), parameter))
+        if (!evaluateMeshNormal(
+                face, static_cast<unsigned int>(index), parameterVertices, triangles, policy, tolerance, normal))
         {
             return MyBRep::FaceMesh();
         }
 
-        const MyMath::Vector3 position = face.geometry().pointAt(parameter.x(), parameter.y());
-        const MyMath::Vector3 normal = face.normalAt(parameter.x(), parameter.y());
         result.addVertex(MyBRep::FaceMeshVertex(parameter, position, normal));
     }
 
@@ -1305,6 +1493,15 @@ MyBRep::FaceMesh buildFaceMesh(const MyBRep::Topology_Face& face,
                                               parameterVertices[triangle.second],
                                               parameterVertices[triangle.third]))
         {
+            // 允许的参数奇点会把一条UV边压缩为同一个三维点；只丢弃与已识别奇点相邻的退化三角形。
+            if (!policy.rejectSingularParameters &&
+                policy.singularityHandler &&
+                triangleContainsSingularParameter(
+                    triangle, face.geometry(), parameterVertices, policy, tolerance))
+            {
+                continue;
+            }
+
             return MyBRep::FaceMesh();
         }
 
@@ -1352,6 +1549,7 @@ ParametricFaceMeshPolicy::ParametricFaceMeshPolicy()
     : periodicU(false)
     , periodicV(false)
     , rejectSingularParameters(true)
+    , singularityHandler(0)
 {
 }
 
@@ -1502,7 +1700,7 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
         return FaceMesh();
     }
 
-    return buildFaceMesh(face, parameterVertices, indexedTriangles, policy);
+    return buildFaceMesh(face, parameterVertices, indexedTriangles, policy, options.geometricTolerance);
 }
 
 }
