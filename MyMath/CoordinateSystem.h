@@ -92,6 +92,16 @@ public:
     // 判断当前坐标系是否为左手坐标系，无效坐标系返回false。
     bool isLeftHanded(double epsilon = DefaultEpsilon) const;
 
+    // 判断当前坐标系是否为右手坐标系，无效坐标系返回false。
+    bool isRightHanded(double epsilon = DefaultEpsilon) const;
+
+    /// 比较运算
+
+    // 判断两个坐标系的原点和坐标轴是否在指定误差内相等。
+    bool isEqualTo(const CoordinateSystem& other, double epsilon = DefaultEpsilon) const;
+    bool operator==(const CoordinateSystem& other) const{return isEqualTo(other);}
+    bool operator!=(const CoordinateSystem& other) const{return !isEqualTo(other);}
+
     // 获取右手坐标系的旋转四元数，失败时保持result不变并返回false。
     bool orientation(Quaternion& result, double epsilon = DefaultEpsilon) const;
 
@@ -111,6 +121,9 @@ public:
 
     // 将相对当前坐标系定义的坐标系转换到世界坐标系。
     CoordinateSystem toGlobalFromRelative(const CoordinateSystem& relativeSystem) const;
+
+    // 将世界坐标系中的坐标系转换为相对当前坐标系的局部坐标系。
+    CoordinateSystem toRelativeFromGlobal(const CoordinateSystem& globalSystem) const;
 
     // 返回当前正交坐标系的逆坐标变换。
     CoordinateSystem inverted() const;

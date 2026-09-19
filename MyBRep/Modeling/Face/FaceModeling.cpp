@@ -4,6 +4,7 @@
 #include <limits>
 #include <vector>
 
+#include "MyMath/MathUtils.h"
 #include "MyMath/Vector2.h"
 #include "MyBRep/Foundation/Diagnostic.h"
 #include "MyBRep/Geometry/Curve/Geometry_BSpline.h"
@@ -17,30 +18,12 @@
 #include "MyBRep/Geometry/Surface/Geometry_PlaneSurface.h"
 #include "MyBRep/Topology/Topology_Builder.h"
 
-namespace
+namespace MyBRep
 {
-
-const double DirectionToleranceScale = 64.0; // 判断圆曲线基方向是否位于Plane时覆盖单位向量舍入误差的固定倍数。
-
-// 判断标量是否为有限非负数。
-bool isFiniteNonNegative(double value)
+namespace Modeling
 {
-    const double infinity = (std::numeric_limits<double>::infinity)();
-    return value == value &&
-           value != infinity &&
-           value != -infinity &&
-           value >= 0.0;
-}
-
-// 返回世界XY方向且原点位于世界原点的标准正交坐标系。
-MyMath::CoordinateSystem worldCoordinateSystem()
+namespace FaceModelingDetail
 {
-    return MyMath::CoordinateSystem::fromAxes(
-        MyMath::Vector3(0.0, 0.0, 0.0),
-        MyMath::Vector3::unitX(),
-        MyMath::Vector3::unitY(),
-        MyMath::Vector3::unitZ());
-}
 
 // 返回三维点在指定Plane参数空间中的(U,V)坐标。
 MyMath::Vector2 pointToUV(const MyBRep::Geometry_PlaneSurface& plane,
@@ -119,9 +102,7 @@ createPlanarCurve2D(const MyBRep::Topology_Edge& edge,
     {
         const MyBRep::Geometry_Circle& circle =
             static_cast<const MyBRep::Geometry_Circle&>(geometry);
-        const double directionTolerance =
-            (std::numeric_limits<double>::epsilon)() *
-            DirectionToleranceScale;
+        const double directionTolerance = (std::numeric_limits<double>::epsilon)() * 64.0;
 
         const MyMath::Vector2 centerUV =
             pointToUV(plane,
@@ -264,11 +245,6 @@ void attachPlanarCurveRepresentations(
 
 }
 
-namespace MyBRep
-{
-namespace Modeling
-{
-
 /// 通用Topology_Face创建
 
 Topology_Face createFace(
@@ -290,13 +266,14 @@ Topology_Face createFace(
     return Topology_Face(surface);
 }
 
+
 /// 平面Topology_Face创建
 
 Topology_Face createPlanarFace(
     const std::vector<Topology_Wire>& wires,
     double tolerance)
 {
-    return createPlanarFace(worldCoordinateSystem(),
+    return createPlanarFace(MyMath::CoordinateSystem::identity(),
                             wires,
                             tolerance);
 }
@@ -308,7 +285,7 @@ Topology_Face createPlanarFace(
 {
     MYBREP_ASSERT_MESSAGE(coordinateSystem.isValid(),
                           "Planar Face modeling requires a valid coordinate system.");
-    MYBREP_ASSERT_MESSAGE(isFiniteNonNegative(tolerance),
+    MYBREP_ASSERT_MESSAGE(MyMath::isFinite(tolerance) && tolerance >= 0.0,
                           "Planar Face modeling tolerance must be finite and non-negative.");
 
     const Foundation::RefPtr<const Geometry_Surface> surface(
@@ -317,7 +294,7 @@ Topology_Face createPlanarFace(
     const Geometry_PlaneSurface& plane =
         static_cast<const Geometry_PlaneSurface&>(*surface);
 
-    attachPlanarCurveRepresentations(surface,
+    FaceModelingDetail::attachPlanarCurveRepresentations(surface,
                                      plane,
                                      wires,
                                      tolerance);
@@ -349,6 +326,16 @@ Topology_Face createPlanarFace(
 }
 
 /// 空间Face实例创建
+
+Face makeFace(const Foundation::RefPtr<const Geometry_Surface>& surface)
+{
+    return Face(createFace(surface));
+}
+
+Face makeFace(const Foundation::RefPtr<const Geometry_Surface>& surface,const MyMath::Matrix4& localToWorld)
+{
+    return Face(createFace(surface), localToWorld);
+}
 
 Face makeFace(
     const Foundation::RefPtr<const Geometry_Surface>& surface,
@@ -400,10 +387,34 @@ Face makePlanarFace(
     const MyMath::Matrix4& localToWorld,
     double tolerance)
 {
-    return Face(createPlanarFace(coordinateSystem,
-                                 wires,
-                                 tolerance),
-                localToWorld);
+    return Face(createPlanarFace(coordinateSystem, wires, tolerance), localToWorld);
+}
+
+Face makePlanarFace(const Topology_Wire& wire,double tolerance)
+{
+    return Face(createPlanarFace(wire, tolerance));
+}
+
+Face makePlanarFace(const Topology_Wire& wire,const MyMath::Matrix4& localToWorld,double tolerance)
+{
+    return Face(createPlanarFace(wire, tolerance), localToWorld);
+}
+
+Face makePlanarFace(
+    const MyMath::CoordinateSystem& coordinateSystem,
+    const Topology_Wire& wire,
+    double tolerance)
+{
+    return Face(createPlanarFace(coordinateSystem, wire, tolerance));
+}
+
+Face makePlanarFace(
+    const MyMath::CoordinateSystem& coordinateSystem,
+    const Topology_Wire& wire,
+    const MyMath::Matrix4& localToWorld,
+    double tolerance)
+{
+    return Face(createPlanarFace(coordinateSystem, wire, tolerance), localToWorld);
 }
 
 }

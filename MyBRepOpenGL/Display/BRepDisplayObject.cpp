@@ -1,4 +1,4 @@
-#include "BRepDisplayObject.h"
+﻿#include "BRepDisplayObject.h"
 
 namespace MyBRep
 {
@@ -8,6 +8,7 @@ namespace Display
 BRepDisplayObject::BRepDisplayObject()
     : id(InvalidBRepDisplayId)
     , itemId(InvalidRenderItemId)
+    , solidGeometryResourceId(InvalidBRepSolidGeometryResourceId)
     , surfaceGeometryId(InvalidResourceId)
     , wireframeGeometryId(InvalidResourceId)
     , surfaceMaterialId(InvalidMaterialId)
@@ -59,6 +60,7 @@ void BRepDisplayObject::clear()
 {
     id = InvalidBRepDisplayId;
     itemId = InvalidRenderItemId;
+    solidGeometryResourceId = InvalidBRepSolidGeometryResourceId;
     surfaceGeometryId = InvalidResourceId;
     wireframeGeometryId = InvalidResourceId;
     surfaceMaterialId = InvalidMaterialId;

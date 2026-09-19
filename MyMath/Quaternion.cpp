@@ -29,16 +29,6 @@ Quaternion::Quaternion(double w, double x, double y, double z)
 
 /// 四元数创建
 
-Quaternion Quaternion::zero()
-{
-    return Quaternion(0.0, 0.0, 0.0, 0.0);
-}
-
-Quaternion Quaternion::identity()
-{
-    return Quaternion();
-}
-
 Quaternion Quaternion::fromAxisAngle(const Vector3& axis, double angle, double epsilon)
 {
     if (!axis.isVector(epsilon) || !MyMath::isFinite(angle))
@@ -136,55 +126,28 @@ Quaternion Quaternion::fromRotationMatrix(const Matrix3& matrix, double epsilon)
     return quaternion.normalized(epsilon);
 }
 
+Quaternion Quaternion::rotationTo(const Vector3& from, const Vector3& to, double epsilon)
+{
+    if (!from.isVector(epsilon) || !to.isVector(epsilon)) return Quaternion::zero();
+
+    const Vector3 fromDirection = from.normalized(epsilon);
+    const Vector3 toDirection = to.normalized(epsilon);
+    const double cosine = clamp(Vector3::dot(fromDirection, toDirection), -1.0, 1.0);
+
+    if (1.0 - cosine <= epsilon) return Quaternion::identity();
+
+    if (1.0 + cosine <= epsilon)
+    {
+        Vector3 axis = Vector3::cross(fromDirection, Vector3::unitX());
+        if (!axis.isVector(epsilon)) axis = Vector3::cross(fromDirection, Vector3::unitY());
+        return fromAxisAngle(axis, Pi, epsilon);
+    }
+
+    const Vector3 axis = Vector3::cross(fromDirection, toDirection);
+    return Quaternion(1.0 + cosine, axis.x(), axis.y(), axis.z()).normalized(epsilon);
+}
+
 /// 分量访问
-
-double Quaternion::w() const
-{
-    return m_w;
-}
-
-double Quaternion::x() const
-{
-    return m_x;
-}
-
-double Quaternion::y() const
-{
-    return m_y;
-}
-
-double Quaternion::z() const
-{
-    return m_z;
-}
-
-void Quaternion::setW(double w)
-{
-    m_w = w;
-}
-
-void Quaternion::setX(double x)
-{
-    m_x = x;
-}
-
-void Quaternion::setY(double y)
-{
-    m_y = y;
-}
-
-void Quaternion::setZ(double z)
-{
-    m_z = z;
-}
-
-void Quaternion::set(double w, double x, double y, double z)
-{
-    m_w = w;
-    m_x = x;
-    m_y = y;
-    m_z = z;
-}
 
 /// 状态判断
 
@@ -426,6 +389,16 @@ Vector3 Quaternion::rotateVector(const Vector3& vector, double epsilon) const
 }
 
 /// 插值计算
+
+Quaternion Quaternion::nlerp(const Quaternion& from, const Quaternion& to, double factor, double epsilon)
+{
+    if (!from.isUnit(epsilon) || !to.isUnit(epsilon) || !MyMath::isFinite(factor) || factor < 0.0 || factor > 1.0) return Quaternion::zero();
+
+    Quaternion target = to;
+    if (dot(from, target) < 0.0) target = -target;
+
+    return (from * (1.0 - factor) + target * factor).normalized(epsilon);
+}
 
 Quaternion Quaternion::slerp(const Quaternion& from, const Quaternion& to, double factor, double epsilon)
 {

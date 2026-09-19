@@ -3,111 +3,79 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
-#include <set>
-#include <vector>
 
-namespace
+namespace MyBRep
 {
 
-const int MaximumAllowedBoundarySubdivisionDepth = 20; // 单条trimming Edge最多2^20个二分区间，避免错误配置造成指数级增长。
-const int MaximumAllowedSurfaceSubdivisionRounds = 20; // 共享边一致细分最多传播20轮，避免极端容差导致无限增长。
-
-struct Ring2D
+ParametricFaceMesherCore::Triangle2D::Triangle2D()
 {
-    std::vector<MyMath::Vector2> points;
-    int depth;
-};
+}
 
-struct Triangle2D
+ParametricFaceMesherCore::Triangle2D::Triangle2D(const MyMath::Vector2& firstValue,
+                                                 const MyMath::Vector2& secondValue,
+                                                 const MyMath::Vector2& thirdValue)
+    : first(firstValue)
+    , second(secondValue)
+    , third(thirdValue)
 {
-    Triangle2D()
-    {
-    }
+}
 
-    Triangle2D(const MyMath::Vector2& firstValue, const MyMath::Vector2& secondValue, const MyMath::Vector2& thirdValue)
-        : first(firstValue)
-        , second(secondValue)
-        , third(thirdValue)
-    {
-    }
-
-    MyMath::Vector2 first;
-    MyMath::Vector2 second;
-    MyMath::Vector2 third;
-};
-
-struct IndexedTriangle
+ParametricFaceMesherCore::IndexedTriangle::IndexedTriangle()
+    : first(0)
+    , second(0)
+    , third(0)
 {
-    IndexedTriangle() : first(0), second(0), third(0)
-    {
-    }
+}
 
-    IndexedTriangle(unsigned int firstValue, unsigned int secondValue, unsigned int thirdValue)
-        : first(firstValue)
-        , second(secondValue)
-        , third(thirdValue)
-    {
-    }
-
-    unsigned int first;
-    unsigned int second;
-    unsigned int third;
-};
-
-struct EdgeKey
+ParametricFaceMesherCore::IndexedTriangle::IndexedTriangle(unsigned int firstValue, unsigned int secondValue, unsigned int thirdValue)
+    : first(firstValue)
+    , second(secondValue)
+    , third(thirdValue)
 {
-    EdgeKey() : first(0), second(0)
-    {
-    }
+}
 
-    EdgeKey(unsigned int firstValue, unsigned int secondValue)
-    {
-        if (firstValue < secondValue)
-        {
-            first = firstValue;
-            second = secondValue;
-        }
-        else
-        {
-            first = secondValue;
-            second = firstValue;
-        }
-    }
-
-    bool operator<(const EdgeKey& other) const
-    {
-        return first < other.first || (first == other.first && second < other.second);
-    }
-
-    unsigned int first;
-    unsigned int second;
-};
-
-enum class TrimClassification
+ParametricFaceMesherCore::EdgeKey::EdgeKey()
+    : first(0)
+    , second(0)
 {
-    Outside,
-    Boundary,
-    Inside
-};
+}
 
-double absoluteValue(double value)
+ParametricFaceMesherCore::EdgeKey::EdgeKey(unsigned int firstValue, unsigned int secondValue)
+{
+    if (firstValue < secondValue)
+    {
+        first = firstValue;
+        second = secondValue;
+    }
+    else
+    {
+        first = secondValue;
+        second = firstValue;
+    }
+}
+
+bool ParametricFaceMesherCore::EdgeKey::operator<(const EdgeKey& other) const
+{
+    return first < other.first || (first == other.first && second < other.second);
+}
+
+double ParametricFaceMesherCore::absoluteValue(double value)
 {
     return value >= 0.0 ? value : -value;
 }
 
-bool isFiniteValue(double value)
+bool ParametricFaceMesherCore::isFiniteValue(double value)
 {
     const double infinity = (std::numeric_limits<double>::infinity)();
     return value == value && value != infinity && value != -infinity;
 }
 
-double nearestInteger(double value)
+double ParametricFaceMesherCore::nearestInteger(double value)
 {
     return value >= 0.0 ? std::floor(value + 0.5) : std::ceil(value - 0.5);
 }
 
-double pointSegmentDistance2D(const MyMath::Vector2& point, const MyMath::Vector2& start, const MyMath::Vector2& end)
+double ParametricFaceMesherCore::pointSegmentDistance2D(const MyMath::Vector2& point, const MyMath::Vector2& start, const MyMath::Vector2& end)
 {
     const MyMath::Vector2 segment = end - start;
     const double lengthSquared = segment.lengthSquared();
@@ -122,7 +90,7 @@ double pointSegmentDistance2D(const MyMath::Vector2& point, const MyMath::Vector
     return point.distanceTo(start + segment * parameter);
 }
 
-double pointSegmentDistance3D(const MyMath::Vector3& point, const MyMath::Vector3& start, const MyMath::Vector3& end)
+double ParametricFaceMesherCore::pointSegmentDistance3D(const MyMath::Vector3& point, const MyMath::Vector3& start, const MyMath::Vector3& end)
 {
     const MyMath::Vector3 segment = end - start;
     const double lengthSquared = MyMath::Vector3::dot(segment, segment);
@@ -137,17 +105,17 @@ double pointSegmentDistance3D(const MyMath::Vector3& point, const MyMath::Vector
     return point.distanceTo(start + segment * parameter);
 }
 
-bool pointsEqual(const MyMath::Vector2& first, const MyMath::Vector2& second, double tolerance)
+bool ParametricFaceMesherCore::pointsEqual(const MyMath::Vector2& first, const MyMath::Vector2& second, double tolerance)
 {
     return first.distanceSquaredTo(second) <= tolerance * tolerance;
 }
 
-double orientation(const MyMath::Vector2& first, const MyMath::Vector2& second, const MyMath::Vector2& third)
+double ParametricFaceMesherCore::orientation(const MyMath::Vector2& first, const MyMath::Vector2& second, const MyMath::Vector2& third)
 {
     return MyMath::Vector2::cross(second - first, third - first);
 }
 
-double signedArea(const std::vector<MyMath::Vector2>& polygon)
+double ParametricFaceMesherCore::signedArea(const std::vector<MyMath::Vector2>& polygon)
 {
     double twiceArea = 0.0;
 
@@ -161,7 +129,8 @@ double signedArea(const std::vector<MyMath::Vector2>& polygon)
     return twiceArea * 0.5;
 }
 
-bool pointOnSegment(const MyMath::Vector2& point, const MyMath::Vector2& first, const MyMath::Vector2& second, double tolerance)
+bool ParametricFaceMesherCore::pointOnSegment(const MyMath::Vector2& point, const MyMath::Vector2& first,
+                                              const MyMath::Vector2& second, double tolerance)
 {
     if (pointSegmentDistance2D(point, first, second) > tolerance)
     {
@@ -176,11 +145,8 @@ bool pointOnSegment(const MyMath::Vector2& point, const MyMath::Vector2& first, 
     return point.x() >= minimumX && point.x() <= maximumX && point.y() >= minimumY && point.y() <= maximumY;
 }
 
-bool segmentsIntersect(const MyMath::Vector2& firstStart,
-                       const MyMath::Vector2& firstEnd,
-                       const MyMath::Vector2& secondStart,
-                       const MyMath::Vector2& secondEnd,
-                       double tolerance)
+bool ParametricFaceMesherCore::segmentsIntersect(const MyMath::Vector2& firstStart, const MyMath::Vector2& firstEnd,
+                                                 const MyMath::Vector2& secondStart, const MyMath::Vector2& secondEnd, double tolerance)
 {
     const double firstA = orientation(firstStart, firstEnd, secondStart);
     const double firstB = orientation(firstStart, firstEnd, secondEnd);
@@ -213,7 +179,7 @@ bool segmentsIntersect(const MyMath::Vector2& firstStart,
     return absoluteValue(secondB) <= tolerance && pointOnSegment(firstEnd, secondStart, secondEnd, tolerance);
 }
 
-bool pointInRing(const MyMath::Vector2& point, const std::vector<MyMath::Vector2>& ring, double tolerance)
+bool ParametricFaceMesherCore::pointInRing(const MyMath::Vector2& point, const std::vector<MyMath::Vector2>& ring, double tolerance)
 {
     bool inside = false;
 
@@ -245,7 +211,8 @@ bool pointInRing(const MyMath::Vector2& point, const std::vector<MyMath::Vector2
     return inside;
 }
 
-TrimClassification classifyTrim(const MyMath::Vector2& point, const std::vector<Ring2D>& rings, double tolerance)
+ParametricFaceMesherCore::TrimClassification ParametricFaceMesherCore::classifyTrim(
+    const MyMath::Vector2& point, const std::vector<Ring2D>& rings, double tolerance)
 {
     bool inside = false;
 
@@ -291,11 +258,8 @@ TrimClassification classifyTrim(const MyMath::Vector2& point, const std::vector<
     return inside ? TrimClassification::Inside : TrimClassification::Outside;
 }
 
-bool pointStrictlyInTriangle(const MyMath::Vector2& point,
-                             const MyMath::Vector2& first,
-                             const MyMath::Vector2& second,
-                             const MyMath::Vector2& third,
-                             double tolerance)
+bool ParametricFaceMesherCore::pointStrictlyInTriangle(const MyMath::Vector2& point, const MyMath::Vector2& first,
+                                                       const MyMath::Vector2& second, const MyMath::Vector2& third, double tolerance)
 {
     const double firstSide = orientation(first, second, point);
     const double secondSide = orientation(second, third, point);
@@ -304,7 +268,7 @@ bool pointStrictlyInTriangle(const MyMath::Vector2& point,
     return firstSide > tolerance && secondSide > tolerance && thirdSide > tolerance;
 }
 
-void removeConsecutiveDuplicates(std::vector<MyMath::Vector2>& points, double tolerance)
+void ParametricFaceMesherCore::removeConsecutiveDuplicates(std::vector<MyMath::Vector2>& points, double tolerance)
 {
     if (points.empty())
     {
@@ -331,7 +295,7 @@ void removeConsecutiveDuplicates(std::vector<MyMath::Vector2>& points, double to
     points.swap(filtered);
 }
 
-void removeSimpleCollinearPoints(std::vector<MyMath::Vector2>& points, double tolerance)
+void ParametricFaceMesherCore::removeSimpleCollinearPoints(std::vector<MyMath::Vector2>& points, double tolerance)
 {
     if (points.size() <= 3)
     {
@@ -360,52 +324,48 @@ void removeSimpleCollinearPoints(std::vector<MyMath::Vector2>& points, double to
     }
 }
 
-MyMath::Vector2 surfaceParameter(const MyBRep::Topology_Edge& edge, const MyBRep::Geometry_Surface& surface, double parameter)
+MyMath::Vector2 ParametricFaceMesherCore::surfaceParameter(const Topology_Edge& edge, const Geometry_Surface& surface, double parameter)
 {
     return edge.surfaceParameterAt(surface, parameter);
 }
 
-MyMath::Vector3 surfacePosition(const MyBRep::Geometry_Surface& surface, const MyMath::Vector2& parameter)
+MyMath::Vector3 ParametricFaceMesherCore::surfacePosition(const Geometry_Surface& surface, const MyMath::Vector2& parameter)
 {
     return surface.pointAt(parameter.x(), parameter.y());
 }
 
-bool boundaryIntervalFlatEnough(const MyBRep::Topology_Edge& edge,
-                                const MyBRep::Geometry_Surface& surface,
-                                double firstParameter,
-                                double lastParameter,
-                                const MyMath::Vector2& firstUV,
-                                const MyMath::Vector2& lastUV,
-                                double chordTolerance)
+bool ParametricFaceMesherCore::boundaryIntervalFlatEnough(const Topology_Edge& edge, const Geometry_Surface& surface,
+                                                          double firstParameter, double lastParameter,
+                                                          const MyMath::Vector2& firstUV, const MyMath::Vector2& lastUV,
+                                                          double chordTolerance)
 {
     const double span = lastParameter - firstParameter;
-    const double quarterParameter = firstParameter + span * 0.25; // 1/4、1/2、3/4共同检查，避免S形边界中点恰落弦上的遗漏。
+    const double quarterParameter = firstParameter + span * 0.25;
     const double middleParameter = firstParameter + span * 0.5;
     const double threeQuarterParameter = firstParameter + span * 0.75;
-
     const MyMath::Vector3 firstPosition = surfacePosition(surface, firstUV);
     const MyMath::Vector3 lastPosition = surfacePosition(surface, lastUV);
 
-    return pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, quarterParameter)), firstPosition, lastPosition) <= chordTolerance &&
-           pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, middleParameter)), firstPosition, lastPosition) <= chordTolerance &&
-           pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, threeQuarterParameter)), firstPosition, lastPosition) <= chordTolerance;
+    return pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, quarterParameter)),
+                                  firstPosition, lastPosition) <= chordTolerance &&
+           pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, middleParameter)),
+                                  firstPosition, lastPosition) <= chordTolerance &&
+           pointSegmentDistance3D(surfacePosition(surface, surfaceParameter(edge, surface, threeQuarterParameter)),
+                                  firstPosition, lastPosition) <= chordTolerance;
 }
 
-void appendAdaptiveBoundaryInterval(const MyBRep::Topology_Edge& edge,
-                                    const MyBRep::Geometry_Surface& surface,
-                                    double firstParameter,
-                                    double lastParameter,
-                                    const MyMath::Vector2& firstUV,
-                                    const MyMath::Vector2& lastUV,
-                                    int depth,
-                                    const MyBRep::ParametricFaceMeshOptions& options,
-                                    std::vector<MyMath::Vector2>& points)
+void ParametricFaceMesherCore::appendAdaptiveBoundaryInterval(const Topology_Edge& edge, const Geometry_Surface& surface,
+                                                              double firstParameter, double lastParameter,
+                                                              const MyMath::Vector2& firstUV, const MyMath::Vector2& lastUV,
+                                                              int depth, const ParametricFaceMeshOptions& options,
+                                                              std::vector<MyMath::Vector2>& points)
 {
     const bool minimumDepthReached = depth >= options.minimumBoundarySubdivisionDepth;
     const bool maximumDepthReached = depth >= options.maximumBoundarySubdivisionDepth;
 
-    if (maximumDepthReached || (minimumDepthReached &&
-        boundaryIntervalFlatEnough(edge, surface, firstParameter, lastParameter, firstUV, lastUV, options.boundaryChordTolerance)))
+    if (maximumDepthReached ||
+        (minimumDepthReached && boundaryIntervalFlatEnough(edge, surface, firstParameter, lastParameter,
+                                                           firstUV, lastUV, options.boundaryChordTolerance)))
     {
         points.push_back(lastUV);
         return;
@@ -418,10 +378,8 @@ void appendAdaptiveBoundaryInterval(const MyBRep::Topology_Edge& edge,
     appendAdaptiveBoundaryInterval(edge, surface, middleParameter, lastParameter, middleUV, lastUV, depth + 1, options, points);
 }
 
-bool sampleEdge(const MyBRep::Topology_Edge& edge,
-                const MyBRep::Geometry_Surface& surface,
-                const MyBRep::ParametricFaceMeshOptions& options,
-                std::vector<MyMath::Vector2>& points)
+bool ParametricFaceMesherCore::sampleEdge(const Topology_Edge& edge, const Geometry_Surface& surface,
+                                          const ParametricFaceMeshOptions& options, std::vector<MyMath::Vector2>& points)
 {
     points.clear();
 
@@ -438,12 +396,12 @@ bool sampleEdge(const MyBRep::Topology_Edge& edge,
     return points.size() >= 2;
 }
 
-double parameterCoordinate(const MyMath::Vector2& parameter, int axis)
+double ParametricFaceMesherCore::parameterCoordinate(const MyMath::Vector2& parameter, int axis)
 {
     return axis == 0 ? parameter.x() : parameter.y();
 }
 
-void setParameterCoordinate(MyMath::Vector2& parameter, int axis, double value)
+void ParametricFaceMesherCore::setParameterCoordinate(MyMath::Vector2& parameter, int axis, double value)
 {
     if (axis == 0)
     {
@@ -455,7 +413,7 @@ void setParameterCoordinate(MyMath::Vector2& parameter, int axis, double value)
     }
 }
 
-void shiftPointsCoordinate(std::vector<MyMath::Vector2>& points, int axis, double shift)
+void ParametricFaceMesherCore::shiftPointsCoordinate(std::vector<MyMath::Vector2>& points, int axis, double shift)
 {
     if (shift == 0.0)
     {
@@ -468,7 +426,8 @@ void shiftPointsCoordinate(std::vector<MyMath::Vector2>& points, int axis, doubl
     }
 }
 
-bool alignPeriodicCoordinate(std::vector<MyMath::Vector2>& edgePoints, const MyMath::Vector2& previousPoint, int axis, double period)
+bool ParametricFaceMesherCore::alignPeriodicCoordinate(std::vector<MyMath::Vector2>& edgePoints,
+                                                       const MyMath::Vector2& previousPoint, int axis, double period)
 {
     if (edgePoints.empty() || period <= 0.0)
     {
@@ -482,38 +441,30 @@ bool alignPeriodicCoordinate(std::vector<MyMath::Vector2>& edgePoints, const MyM
     return true;
 }
 
-bool singularParametersMeet(const MyBRep::Geometry_Surface& surface,
-                            const MyMath::Vector2& first,
-                            const MyMath::Vector2& second,
-                            const MyBRep::ParametricFaceMeshPolicy& policy,
-                            double tolerance)
+bool ParametricFaceMesherCore::singularParametersMeet(const Geometry_Surface& surface, const MyMath::Vector2& first,
+                                                      const MyMath::Vector2& second, const ParametricFaceMeshPolicy& policy,
+                                                      double tolerance)
 {
-    return policy.singularityHandler &&
-           policy.singularityHandler->parametersMeetAtSingularity(surface, first, second, tolerance);
+    return policy.singularityHandler && policy.singularityHandler->parametersMeetAtSingularity(surface, first, second, tolerance);
 }
 
-bool parametersConnect(const MyBRep::Geometry_Surface& surface,
-                       const MyMath::Vector2& first,
-                       const MyMath::Vector2& second,
-                       const MyBRep::ParametricFaceMeshPolicy& policy,
-                       double tolerance)
+bool ParametricFaceMesherCore::parametersConnect(const Geometry_Surface& surface, const MyMath::Vector2& first,
+                                                 const MyMath::Vector2& second, const ParametricFaceMeshPolicy& policy,
+                                                 double tolerance)
 {
-    return pointsEqual(first, second, tolerance) ||
-           singularParametersMeet(surface, first, second, policy, tolerance);
+    return pointsEqual(first, second, tolerance) || singularParametersMeet(surface, first, second, policy, tolerance);
 }
 
-bool alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
-                               const MyMath::Vector2& previousPoint,
-                               const MyBRep::Geometry_Surface& surface,
-                               const MyBRep::ParametricFaceMeshPolicy& policy,
-                               double tolerance)
+bool ParametricFaceMesherCore::alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
+                                                         const MyMath::Vector2& previousPoint,
+                                                         const Geometry_Surface& surface,
+                                                         const ParametricFaceMeshPolicy& policy, double tolerance)
 {
     if (edgePoints.empty())
     {
         return false;
     }
 
-    // 参数奇点处不同周期坐标可以对应同一三维拓扑点，此时必须保留原始UV差异，不能先执行周期平移。
     if (parametersConnect(surface, previousPoint, edgePoints.front(), policy, tolerance))
     {
         return true;
@@ -532,11 +483,9 @@ bool alignEdgeSampleToPrevious(std::vector<MyMath::Vector2>& edgePoints,
     return parametersConnect(surface, previousPoint, edgePoints.front(), policy, tolerance);
 }
 
-bool sampleWire(const MyBRep::Topology_Wire& wire,
-                const MyBRep::Geometry_Surface& surface,
-                const MyBRep::ParametricFaceMeshOptions& options,
-                const MyBRep::ParametricFaceMeshPolicy& policy,
-                std::vector<MyMath::Vector2>& points)
+bool ParametricFaceMesherCore::sampleWire(const Topology_Wire& wire, const Geometry_Surface& surface,
+                                          const ParametricFaceMeshOptions& options, const ParametricFaceMeshPolicy& policy,
+                                          std::vector<MyMath::Vector2>& points)
 {
     points.clear();
 
@@ -556,9 +505,6 @@ bool sampleWire(const MyBRep::Topology_Wire& wire,
                 return false;
             }
 
-            // 普通连接点在两个Edge中是同一个UV，只保留一份。
-            // 参数奇点处允许不同UV映射到同一个三维拓扑点，此时必须同时保留两侧UV，
-            // 否则会吞掉pole/seam的一侧参数端点，破坏完整参数域及后续pole fan三角化。
             if (pointsEqual(points.back(), edgePoints.front(), options.geometricTolerance))
             {
                 edgePoints.erase(edgePoints.begin());
@@ -589,7 +535,7 @@ bool sampleWire(const MyBRep::Topology_Wire& wire,
     return points.size() >= 3 && absoluteValue(signedArea(points)) > options.geometricTolerance * options.geometricTolerance;
 }
 
-double ringCenterCoordinate(const Ring2D& ring, int axis)
+double ParametricFaceMesherCore::ringCenterCoordinate(const Ring2D& ring, int axis)
 {
     double sum = 0.0;
 
@@ -601,7 +547,7 @@ double ringCenterCoordinate(const Ring2D& ring, int axis)
     return sum / static_cast<double>(ring.points.size());
 }
 
-double ringCoordinateSpan(const Ring2D& ring, int axis)
+double ParametricFaceMesherCore::ringCoordinateSpan(const Ring2D& ring, int axis)
 {
     double minimum = parameterCoordinate(ring.points[0], axis);
     double maximum = minimum;
@@ -616,7 +562,7 @@ double ringCoordinateSpan(const Ring2D& ring, int axis)
     return maximum - minimum;
 }
 
-bool normalizeRingPeriods(std::vector<Ring2D>& rings, int axis, double period, double tolerance)
+bool ParametricFaceMesherCore::normalizeRingPeriods(std::vector<Ring2D>& rings, int axis, double period, double tolerance)
 {
     if (rings.empty() || period <= 0.0)
     {
@@ -672,7 +618,7 @@ bool normalizeRingPeriods(std::vector<Ring2D>& rings, int axis, double period, d
     return globalMaximum - globalMinimum <= period + tolerance;
 }
 
-void calculateRingDepths(std::vector<Ring2D>& rings, double tolerance)
+void ParametricFaceMesherCore::calculateRingDepths(std::vector<Ring2D>& rings, double tolerance)
 {
     for (std::size_t ringIndex = 0; ringIndex < rings.size(); ++ringIndex)
     {
@@ -696,7 +642,7 @@ void calculateRingDepths(std::vector<Ring2D>& rings, double tolerance)
     }
 }
 
-void orientRing(std::vector<MyMath::Vector2>& ring, bool counterClockwise)
+void ParametricFaceMesherCore::orientRing(std::vector<MyMath::Vector2>& ring, bool counterClockwise)
 {
     const bool currentlyCounterClockwise = signedArea(ring) > 0.0;
 
@@ -706,7 +652,7 @@ void orientRing(std::vector<MyMath::Vector2>& ring, bool counterClockwise)
     }
 }
 
-std::size_t rightmostVertex(const std::vector<MyMath::Vector2>& ring)
+std::size_t ParametricFaceMesherCore::rightmostVertex(const std::vector<MyMath::Vector2>& ring)
 {
     std::size_t result = 0;
 
@@ -722,20 +668,22 @@ std::size_t rightmostVertex(const std::vector<MyMath::Vector2>& ring)
     return result;
 }
 
-bool bridgeCrossesPolygon(const MyMath::Vector2& first,
-                          const MyMath::Vector2& second,
-                          const std::vector<MyMath::Vector2>& polygon,
-                          double tolerance)
+bool ParametricFaceMesherCore::holeRightmostGreater(const std::vector<MyMath::Vector2>& first,
+                                                    const std::vector<MyMath::Vector2>& second)
+{
+    return first[rightmostVertex(first)].x() > second[rightmostVertex(second)].x();
+}
+
+bool ParametricFaceMesherCore::bridgeCrossesPolygon(const MyMath::Vector2& first, const MyMath::Vector2& second,
+                                                    const std::vector<MyMath::Vector2>& polygon, double tolerance)
 {
     for (std::size_t index = 0; index < polygon.size(); ++index)
     {
         const MyMath::Vector2& edgeStart = polygon[index];
         const MyMath::Vector2& edgeEnd = polygon[(index + 1) % polygon.size()];
 
-        if (pointsEqual(edgeStart, first, tolerance) ||
-            pointsEqual(edgeEnd, first, tolerance) ||
-            pointsEqual(edgeStart, second, tolerance) ||
-            pointsEqual(edgeEnd, second, tolerance))
+        if (pointsEqual(edgeStart, first, tolerance) || pointsEqual(edgeEnd, first, tolerance) ||
+            pointsEqual(edgeStart, second, tolerance) || pointsEqual(edgeEnd, second, tolerance))
         {
             continue;
         }
@@ -749,20 +697,16 @@ bool bridgeCrossesPolygon(const MyMath::Vector2& first,
     return false;
 }
 
-bool bridgeCrossesRing(const MyMath::Vector2& first,
-                       const MyMath::Vector2& second,
-                       const std::vector<MyMath::Vector2>& ring,
-                       double tolerance)
+bool ParametricFaceMesherCore::bridgeCrossesRing(const MyMath::Vector2& first, const MyMath::Vector2& second,
+                                                 const std::vector<MyMath::Vector2>& ring, double tolerance)
 {
     for (std::size_t index = 0; index < ring.size(); ++index)
     {
         const MyMath::Vector2& edgeStart = ring[index];
         const MyMath::Vector2& edgeEnd = ring[(index + 1) % ring.size()];
 
-        if (pointsEqual(edgeStart, first, tolerance) ||
-            pointsEqual(edgeEnd, first, tolerance) ||
-            pointsEqual(edgeStart, second, tolerance) ||
-            pointsEqual(edgeEnd, second, tolerance))
+        if (pointsEqual(edgeStart, first, tolerance) || pointsEqual(edgeEnd, first, tolerance) ||
+            pointsEqual(edgeStart, second, tolerance) || pointsEqual(edgeEnd, second, tolerance))
         {
             continue;
         }
@@ -776,16 +720,13 @@ bool bridgeCrossesRing(const MyMath::Vector2& first,
     return false;
 }
 
-bool findBridge(const std::vector<Ring2D>& allRings,
-                const std::vector<MyMath::Vector2>& polygon,
-                const std::vector<std::vector<MyMath::Vector2> >& remainingHoles,
-                std::size_t currentHoleIndex,
-                std::size_t holeVertexIndex,
-                double tolerance,
-                std::size_t& polygonVertexIndex)
+bool ParametricFaceMesherCore::findBridge(const std::vector<Ring2D>& allRings,
+                                          const std::vector<MyMath::Vector2>& polygon,
+                                          const std::vector<std::vector<MyMath::Vector2> >& remainingHoles,
+                                          std::size_t currentHoleIndex, std::size_t holeVertexIndex,
+                                          double tolerance, std::size_t& polygonVertexIndex)
 {
     const MyMath::Vector2 holePoint = remainingHoles[currentHoleIndex][holeVertexIndex];
-
     bool found = false;
     double bestDistanceSquared = 0.0;
 
@@ -839,10 +780,8 @@ bool findBridge(const std::vector<Ring2D>& allRings,
     return found;
 }
 
-void stitchHole(std::vector<MyMath::Vector2>& polygon,
-                std::size_t polygonVertexIndex,
-                const std::vector<MyMath::Vector2>& hole,
-                std::size_t holeVertexIndex)
+void ParametricFaceMesherCore::stitchHole(std::vector<MyMath::Vector2>& polygon, std::size_t polygonVertexIndex,
+                                          const std::vector<MyMath::Vector2>& hole, std::size_t holeVertexIndex)
 {
     std::vector<MyMath::Vector2> merged;
     merged.reserve(polygon.size() + hole.size() + 2);
@@ -868,11 +807,10 @@ void stitchHole(std::vector<MyMath::Vector2>& polygon,
     polygon.swap(merged);
 }
 
-bool isEar(const std::vector<MyMath::Vector2>& polygon, std::size_t index, double tolerance)
+bool ParametricFaceMesherCore::isEar(const std::vector<MyMath::Vector2>& polygon, std::size_t index, double tolerance)
 {
     const std::size_t previousIndex = (index + polygon.size() - 1) % polygon.size();
     const std::size_t nextIndex = (index + 1) % polygon.size();
-
     const MyMath::Vector2& previous = polygon[previousIndex];
     const MyMath::Vector2& current = polygon[index];
     const MyMath::Vector2& next = polygon[nextIndex];
@@ -891,8 +829,7 @@ bool isEar(const std::vector<MyMath::Vector2>& polygon, std::size_t index, doubl
 
         const MyMath::Vector2& testPoint = polygon[testIndex];
 
-        if (pointsEqual(testPoint, previous, tolerance) ||
-            pointsEqual(testPoint, current, tolerance) ||
+        if (pointsEqual(testPoint, previous, tolerance) || pointsEqual(testPoint, current, tolerance) ||
             pointsEqual(testPoint, next, tolerance))
         {
             continue;
@@ -907,7 +844,7 @@ bool isEar(const std::vector<MyMath::Vector2>& polygon, std::size_t index, doubl
     return true;
 }
 
-bool removeOneDegenerateVertex(std::vector<MyMath::Vector2>& polygon, double tolerance)
+bool ParametricFaceMesherCore::removeOneDegenerateVertex(std::vector<MyMath::Vector2>& polygon, double tolerance)
 {
     if (polygon.size() <= 3)
     {
@@ -937,7 +874,8 @@ bool removeOneDegenerateVertex(std::vector<MyMath::Vector2>& polygon, double tol
     return false;
 }
 
-bool earClip(std::vector<MyMath::Vector2> polygon, double tolerance, std::vector<Triangle2D>& triangles)
+bool ParametricFaceMesherCore::earClip(std::vector<MyMath::Vector2> polygon, double tolerance,
+                                       std::vector<Triangle2D>& triangles)
 {
     removeConsecutiveDuplicates(polygon, tolerance);
 
@@ -952,7 +890,7 @@ bool earClip(std::vector<MyMath::Vector2> polygon, double tolerance, std::vector
     }
 
     std::size_t guard = 0;
-    const std::size_t guardLimit = polygon.size() * polygon.size() * 4; // 弱简单多边形耳切使用二次规模保护，避免异常输入无限循环。
+    const std::size_t guardLimit = polygon.size() * polygon.size() * 4;
 
     while (polygon.size() > 3 && guard < guardLimit)
     {
@@ -967,7 +905,6 @@ bool earClip(std::vector<MyMath::Vector2> polygon, double tolerance, std::vector
 
             const std::size_t previousIndex = (index + polygon.size() - 1) % polygon.size();
             const std::size_t nextIndex = (index + 1) % polygon.size();
-
             triangles.push_back(Triangle2D(polygon[previousIndex], polygon[index], polygon[nextIndex]));
             polygon.erase(polygon.begin() + index);
             clipped = true;
@@ -991,11 +928,9 @@ bool earClip(std::vector<MyMath::Vector2> polygon, double tolerance, std::vector
     return true;
 }
 
-bool triangulateFilledRing(const std::vector<Ring2D>& allRings,
-                           const Ring2D& outerRing,
-                           const std::vector<const Ring2D*>& holeRings,
-                           double tolerance,
-                           std::vector<Triangle2D>& triangles)
+bool ParametricFaceMesherCore::triangulateFilledRing(const std::vector<Ring2D>& allRings, const Ring2D& outerRing,
+                                                     const std::vector<const Ring2D*>& holeRings, double tolerance,
+                                                     std::vector<Triangle2D>& triangles)
 {
     std::vector<MyMath::Vector2> polygon = outerRing.points;
     orientRing(polygon, true);
@@ -1010,11 +945,7 @@ bool triangulateFilledRing(const std::vector<Ring2D>& allRings,
         holes.push_back(hole);
     }
 
-    std::sort(holes.begin(), holes.end(),
-              [](const std::vector<MyMath::Vector2>& first, const std::vector<MyMath::Vector2>& second)
-    {
-        return first[rightmostVertex(first)].x() > second[rightmostVertex(second)].x();
-    });
+    std::sort(holes.begin(), holes.end(), ParametricFaceMesherCore::holeRightmostGreater);
 
     for (std::size_t holeIndex = 0; holeIndex < holes.size(); ++holeIndex)
     {
@@ -1032,9 +963,8 @@ bool triangulateFilledRing(const std::vector<Ring2D>& allRings,
     return earClip(polygon, tolerance, triangles);
 }
 
-unsigned int findOrAppendParameterVertex(const MyMath::Vector2& parameter,
-                                         double tolerance,
-                                         std::vector<MyMath::Vector2>& vertices)
+unsigned int ParametricFaceMesherCore::findOrAppendParameterVertex(const MyMath::Vector2& parameter, double tolerance,
+                                                                  std::vector<MyMath::Vector2>& vertices)
 {
     for (std::size_t index = 0; index < vertices.size(); ++index)
     {
@@ -1048,10 +978,9 @@ unsigned int findOrAppendParameterVertex(const MyMath::Vector2& parameter,
     return static_cast<unsigned int>(vertices.size() - 1);
 }
 
-bool buildIndexedTriangles(const std::vector<Triangle2D>& triangles,
-                           double tolerance,
-                           std::vector<MyMath::Vector2>& vertices,
-                           std::vector<IndexedTriangle>& indexedTriangles)
+bool ParametricFaceMesherCore::buildIndexedTriangles(const std::vector<Triangle2D>& triangles, double tolerance,
+                                                     std::vector<MyMath::Vector2>& vertices,
+                                                     std::vector<IndexedTriangle>& indexedTriangles)
 {
     vertices.clear();
     indexedTriangles.clear();
@@ -1074,7 +1003,7 @@ bool buildIndexedTriangles(const std::vector<Triangle2D>& triangles,
     return !vertices.empty() && !indexedTriangles.empty();
 }
 
-bool parameterIsRegular(const MyBRep::Geometry_Surface& surface, const MyMath::Vector2& parameter)
+bool ParametricFaceMesherCore::parameterIsRegular(const Geometry_Surface& surface, const MyMath::Vector2& parameter)
 {
     const MyMath::Vector3 derivativeU = surface.firstDerivativeUAt(parameter.x(), parameter.y());
     const MyMath::Vector3 derivativeV = surface.firstDerivativeVAt(parameter.x(), parameter.y());
@@ -1087,10 +1016,8 @@ bool parameterIsRegular(const MyBRep::Geometry_Surface& surface, const MyMath::V
     return MyMath::Vector3::cross(derivativeU, derivativeV).isVector(0.0);
 }
 
-bool parameterIsSingular(const MyBRep::Geometry_Surface& surface,
-                         const MyMath::Vector2& parameter,
-                         const MyBRep::ParametricFaceMeshPolicy& policy,
-                         double tolerance)
+bool ParametricFaceMesherCore::parameterIsSingular(const Geometry_Surface& surface, const MyMath::Vector2& parameter,
+                                                   const ParametricFaceMeshPolicy& policy, double tolerance)
 {
     if (policy.singularityHandler)
     {
@@ -1100,14 +1027,12 @@ bool parameterIsSingular(const MyBRep::Geometry_Surface& surface,
     return !parameterIsRegular(surface, parameter);
 }
 
-double surfaceEdgeChordError(const MyBRep::Geometry_Surface& surface,
-                             const std::vector<MyMath::Vector2>& vertices,
-                             const EdgeKey& edge)
+double ParametricFaceMesherCore::surfaceEdgeChordError(const Geometry_Surface& surface,
+                                                       const std::vector<MyMath::Vector2>& vertices, const EdgeKey& edge)
 {
     const MyMath::Vector2 firstParameter = vertices[edge.first];
     const MyMath::Vector2 secondParameter = vertices[edge.second];
     const MyMath::Vector2 middleParameter = (firstParameter + secondParameter) * 0.5;
-
     const MyMath::Vector3 first = surfacePosition(surface, firstParameter);
     const MyMath::Vector3 second = surfacePosition(surface, secondParameter);
     const MyMath::Vector3 middle = surfacePosition(surface, middleParameter);
@@ -1115,14 +1040,14 @@ double surfaceEdgeChordError(const MyBRep::Geometry_Surface& surface,
     return pointSegmentDistance3D(middle, first, second);
 }
 
-void collectTriangleEdges(const IndexedTriangle& triangle, std::set<EdgeKey>& edges)
+void ParametricFaceMesherCore::collectTriangleEdges(const IndexedTriangle& triangle, std::set<EdgeKey>& edges)
 {
     edges.insert(EdgeKey(triangle.first, triangle.second));
     edges.insert(EdgeKey(triangle.second, triangle.third));
     edges.insert(EdgeKey(triangle.third, triangle.first));
 }
 
-int splitEdgeCount(const IndexedTriangle& triangle, const std::set<EdgeKey>& splitEdges)
+int ParametricFaceMesherCore::splitEdgeCount(const IndexedTriangle& triangle, const std::set<EdgeKey>& splitEdges)
 {
     int count = 0;
 
@@ -1144,7 +1069,8 @@ int splitEdgeCount(const IndexedTriangle& triangle, const std::set<EdgeKey>& spl
     return count;
 }
 
-void addMissingThirdEdgeForTwoSplitTriangle(const IndexedTriangle& triangle, std::set<EdgeKey>& splitEdges)
+void ParametricFaceMesherCore::addMissingThirdEdgeForTwoSplitTriangle(const IndexedTriangle& triangle,
+                                                                     std::set<EdgeKey>& splitEdges)
 {
     const EdgeKey edgeAB(triangle.first, triangle.second);
     const EdgeKey edgeBC(triangle.second, triangle.third);
@@ -1173,9 +1099,8 @@ void addMissingThirdEdgeForTwoSplitTriangle(const IndexedTriangle& triangle, std
     }
 }
 
-unsigned int midpointVertex(const EdgeKey& edge,
-                            std::vector<MyMath::Vector2>& vertices,
-                            std::map<EdgeKey, unsigned int>& midpointIndices)
+unsigned int ParametricFaceMesherCore::midpointVertex(const EdgeKey& edge, std::vector<MyMath::Vector2>& vertices,
+                                                      std::map<EdgeKey, unsigned int>& midpointIndices)
 {
     std::map<EdgeKey, unsigned int>::const_iterator found = midpointIndices.find(edge);
 
@@ -1191,11 +1116,9 @@ unsigned int midpointVertex(const EdgeKey& edge,
     return index;
 }
 
-bool refineSurfaceOnce(const MyBRep::Geometry_Surface& surface,
-                       double tolerance,
-                       std::vector<MyMath::Vector2>& vertices,
-                       std::vector<IndexedTriangle>& triangles,
-                       bool& changed)
+bool ParametricFaceMesherCore::refineSurfaceOnce(const Geometry_Surface& surface, double tolerance,
+                                                 std::vector<MyMath::Vector2>& vertices,
+                                                 std::vector<IndexedTriangle>& triangles, bool& changed)
 {
     changed = false;
     std::set<EdgeKey> allEdges;
@@ -1220,9 +1143,6 @@ bool refineSurfaceOnce(const MyBRep::Geometry_Surface& surface,
         return true;
     }
 
-    // 与已验证的Sphere/Cylinder/Cone细分策略保持一致：
-    // 一个Triangle若恰有两条边需要切分，则补切第三边，并把新增切分向邻接Triangle传播到稳定。
-    // 稳定后每个Triangle只会出现0、1或3条切分边，避免2-edge分裂形成偏斜三角形。
     bool propagationChanged = true;
 
     while (propagationChanged)
@@ -1315,10 +1235,9 @@ bool refineSurfaceOnce(const MyBRep::Geometry_Surface& surface,
     return true;
 }
 
-bool surfaceNeedsMoreRefinement(const MyBRep::Geometry_Surface& surface,
-                                double tolerance,
-                                const std::vector<MyMath::Vector2>& vertices,
-                                const std::vector<IndexedTriangle>& triangles)
+bool ParametricFaceMesherCore::surfaceNeedsMoreRefinement(const Geometry_Surface& surface, double tolerance,
+                                                          const std::vector<MyMath::Vector2>& vertices,
+                                                          const std::vector<IndexedTriangle>& triangles)
 {
     std::set<EdgeKey> edges;
 
@@ -1338,10 +1257,9 @@ bool surfaceNeedsMoreRefinement(const MyBRep::Geometry_Surface& surface,
     return false;
 }
 
-bool refineSurface(const MyBRep::Geometry_Surface& surface,
-                   const MyBRep::ParametricFaceMeshOptions& options,
-                   std::vector<MyMath::Vector2>& vertices,
-                   std::vector<IndexedTriangle>& triangles)
+bool ParametricFaceMesherCore::refineSurface(const Geometry_Surface& surface, const ParametricFaceMeshOptions& options,
+                                             std::vector<MyMath::Vector2>& vertices,
+                                             std::vector<IndexedTriangle>& triangles)
 {
     for (int round = 0; round < options.maximumSurfaceSubdivisionRounds; ++round)
     {
@@ -1361,10 +1279,10 @@ bool refineSurface(const MyBRep::Geometry_Surface& surface,
     return !surfaceNeedsMoreRefinement(surface, options.surfaceChordTolerance, vertices, triangles);
 }
 
-bool trianglePositionsAreNonDegenerate(const MyBRep::Geometry_Surface& surface,
-                                       const MyMath::Vector2& firstParameter,
-                                       const MyMath::Vector2& secondParameter,
-                                       const MyMath::Vector2& thirdParameter)
+bool ParametricFaceMesherCore::trianglePositionsAreNonDegenerate(const Geometry_Surface& surface,
+                                                                 const MyMath::Vector2& firstParameter,
+                                                                 const MyMath::Vector2& secondParameter,
+                                                                 const MyMath::Vector2& thirdParameter)
 {
     const MyMath::Vector3 first = surfacePosition(surface, firstParameter);
     const MyMath::Vector3 second = surfacePosition(surface, secondParameter);
@@ -1372,18 +1290,16 @@ bool trianglePositionsAreNonDegenerate(const MyBRep::Geometry_Surface& surface,
     return MyMath::Vector3::cross(second - first, third - first).isVector(0.0);
 }
 
-bool triangleUsesVertex(const IndexedTriangle& triangle, unsigned int vertexIndex)
+bool ParametricFaceMesherCore::triangleUsesVertex(const IndexedTriangle& triangle, unsigned int vertexIndex)
 {
     return triangle.first == vertexIndex || triangle.second == vertexIndex || triangle.third == vertexIndex;
 }
 
-bool findRegularApproachParameter(unsigned int singularVertexIndex,
-                                  const MyBRep::Geometry_Surface& surface,
-                                  const std::vector<MyMath::Vector2>& parameterVertices,
-                                  const std::vector<IndexedTriangle>& triangles,
-                                  const MyBRep::ParametricFaceMeshPolicy& policy,
-                                  double tolerance,
-                                  MyMath::Vector2& regularApproachParameter)
+bool ParametricFaceMesherCore::findRegularApproachParameter(unsigned int singularVertexIndex, const Geometry_Surface& surface,
+                                                            const std::vector<MyMath::Vector2>& parameterVertices,
+                                                            const std::vector<IndexedTriangle>& triangles,
+                                                            const ParametricFaceMeshPolicy& policy, double tolerance,
+                                                            MyMath::Vector2& regularApproachParameter)
 {
     for (std::size_t triangleIndex = 0; triangleIndex < triangles.size(); ++triangleIndex)
     {
@@ -1394,7 +1310,7 @@ bool findRegularApproachParameter(unsigned int singularVertexIndex,
             continue;
         }
 
-        const unsigned int candidates[3] = {triangle.first, triangle.second, triangle.third};
+        const unsigned int candidates[3] = { triangle.first, triangle.second, triangle.third };
 
         for (int candidateIndex = 0; candidateIndex < 3; ++candidateIndex)
         {
@@ -1416,24 +1332,21 @@ bool findRegularApproachParameter(unsigned int singularVertexIndex,
     return false;
 }
 
-bool triangleContainsSingularParameter(const IndexedTriangle& triangle,
-                                       const MyBRep::Geometry_Surface& surface,
-                                       const std::vector<MyMath::Vector2>& parameterVertices,
-                                       const MyBRep::ParametricFaceMeshPolicy& policy,
-                                       double tolerance)
+bool ParametricFaceMesherCore::triangleContainsSingularParameter(const IndexedTriangle& triangle,
+                                                                 const Geometry_Surface& surface,
+                                                                 const std::vector<MyMath::Vector2>& parameterVertices,
+                                                                 const ParametricFaceMeshPolicy& policy, double tolerance)
 {
     return parameterIsSingular(surface, parameterVertices[triangle.first], policy, tolerance) ||
            parameterIsSingular(surface, parameterVertices[triangle.second], policy, tolerance) ||
            parameterIsSingular(surface, parameterVertices[triangle.third], policy, tolerance);
 }
 
-bool evaluateMeshNormal(const MyBRep::Topology_Face& face,
-                        unsigned int vertexIndex,
-                        const std::vector<MyMath::Vector2>& parameterVertices,
-                        const std::vector<IndexedTriangle>& triangles,
-                        const MyBRep::ParametricFaceMeshPolicy& policy,
-                        double tolerance,
-                        MyMath::Vector3& normal)
+bool ParametricFaceMesherCore::evaluateMeshNormal(const Topology_Face& face, unsigned int vertexIndex,
+                                                  const std::vector<MyMath::Vector2>& parameterVertices,
+                                                  const std::vector<IndexedTriangle>& triangles,
+                                                  const ParametricFaceMeshPolicy& policy, double tolerance,
+                                                  MyMath::Vector3& normal)
 {
     const MyMath::Vector2& parameter = parameterVertices[vertexIndex];
 
@@ -1450,24 +1363,21 @@ bool evaluateMeshNormal(const MyBRep::Topology_Face& face,
 
     MyMath::Vector2 regularApproachParameter;
 
-    if (!findRegularApproachParameter(
-            vertexIndex, face.geometry(), parameterVertices, triangles, policy, tolerance, regularApproachParameter))
+    if (!findRegularApproachParameter(vertexIndex, face.geometry(), parameterVertices, triangles,
+                                      policy, tolerance, regularApproachParameter))
     {
         return false;
     }
 
-    return policy.singularityHandler->normalAt(
-               face, parameter, regularApproachParameter, tolerance, normal) &&
-           normal.isUnit();
+    return policy.singularityHandler->normalAt(face, parameter, regularApproachParameter, tolerance, normal) && normal.isUnit();
 }
 
-MyBRep::FaceMesh buildFaceMesh(const MyBRep::Topology_Face& face,
-                               const std::vector<MyMath::Vector2>& parameterVertices,
-                               const std::vector<IndexedTriangle>& triangles,
-                               const MyBRep::ParametricFaceMeshPolicy& policy,
-                               double tolerance)
+FaceMesh ParametricFaceMesherCore::buildFaceMesh(const Topology_Face& face,
+                                                 const std::vector<MyMath::Vector2>& parameterVertices,
+                                                 const std::vector<IndexedTriangle>& triangles,
+                                                 const ParametricFaceMeshPolicy& policy, double tolerance)
 {
-    MyBRep::FaceMesh result;
+    FaceMesh result;
 
     for (std::size_t index = 0; index < parameterVertices.size(); ++index)
     {
@@ -1475,34 +1385,28 @@ MyBRep::FaceMesh buildFaceMesh(const MyBRep::Topology_Face& face,
         const MyMath::Vector3 position = face.geometry().pointAt(parameter.x(), parameter.y());
         MyMath::Vector3 normal;
 
-        if (!evaluateMeshNormal(
-                face, static_cast<unsigned int>(index), parameterVertices, triangles, policy, tolerance, normal))
+        if (!evaluateMeshNormal(face, static_cast<unsigned int>(index), parameterVertices, triangles, policy, tolerance, normal))
         {
-            return MyBRep::FaceMesh();
+            return FaceMesh();
         }
 
-        result.addVertex(MyBRep::FaceMeshVertex(parameter, position, normal));
+        result.addVertex(FaceMeshVertex(parameter, position, normal));
     }
 
     for (std::size_t index = 0; index < triangles.size(); ++index)
     {
         const IndexedTriangle& triangle = triangles[index];
 
-        if (!trianglePositionsAreNonDegenerate(face.geometry(),
-                                              parameterVertices[triangle.first],
-                                              parameterVertices[triangle.second],
-                                              parameterVertices[triangle.third]))
+        if (!trianglePositionsAreNonDegenerate(face.geometry(), parameterVertices[triangle.first],
+                                               parameterVertices[triangle.second], parameterVertices[triangle.third]))
         {
-            // 允许的参数奇点会把一条UV边压缩为同一个三维点；只丢弃与已识别奇点相邻的退化三角形。
-            if (!policy.rejectSingularParameters &&
-                policy.singularityHandler &&
-                triangleContainsSingularParameter(
-                    triangle, face.geometry(), parameterVertices, policy, tolerance))
+            if (!policy.rejectSingularParameters && policy.singularityHandler &&
+                triangleContainsSingularParameter(triangle, face.geometry(), parameterVertices, policy, tolerance))
             {
                 continue;
             }
 
-            return MyBRep::FaceMesh();
+            return FaceMesh();
         }
 
         if (face.isForward())
@@ -1515,29 +1419,32 @@ MyBRep::FaceMesh buildFaceMesh(const MyBRep::Topology_Face& face,
         }
     }
 
-    return result.isValid() ? result : MyBRep::FaceMesh();
+    return result.isValid() ? result : FaceMesh();
 }
-
-}
-
-namespace MyBRep
-{
 
 ParametricFaceMeshOptions::ParametricFaceMeshOptions()
-    : boundaryChordTolerance(1.0e-3)                      // 默认1e-3模型单位边界弦误差。
-    , surfaceChordTolerance(1.0e-3)                       // 默认1e-3模型单位共享边弦高误差。
-    , geometricTolerance(MyMath::Vector2::DefaultEpsilon) // UV拓扑计算沿用MyMath二维基础比较误差。
-    , minimumBoundarySubdivisionDepth(2)                 // trimming Edge至少四等分后再允许停止。
-    , maximumBoundarySubdivisionDepth(12)                // 单Edge最多4096个二分区间。
-    , maximumSurfaceSubdivisionRounds(12)                // 最多12轮共享边一致细分。
+    : boundaryChordTolerance(1.0e-3)
+    , surfaceChordTolerance(1.0e-3)
+    , geometricTolerance(MyMath::Vector2::DefaultEpsilon)
+    , minimumBoundarySubdivisionDepth(2)
+    , maximumBoundarySubdivisionDepth(12)
+    , maximumSurfaceSubdivisionRounds(12)
 {
 }
 
 bool ParametricFaceMeshOptions::isValid() const
 {
-    return isFiniteValue(boundaryChordTolerance) && boundaryChordTolerance > 0.0 &&
-           isFiniteValue(surfaceChordTolerance) && surfaceChordTolerance > 0.0 &&
-           isFiniteValue(geometricTolerance) && geometricTolerance > 0.0 &&
+    const double infinity = (std::numeric_limits<double>::infinity)();
+    const bool boundaryFinite = boundaryChordTolerance == boundaryChordTolerance &&
+                                boundaryChordTolerance != infinity && boundaryChordTolerance != -infinity;
+    const bool surfaceFinite = surfaceChordTolerance == surfaceChordTolerance &&
+                               surfaceChordTolerance != infinity && surfaceChordTolerance != -infinity;
+    const bool geometryFinite = geometricTolerance == geometricTolerance &&
+                                geometricTolerance != infinity && geometricTolerance != -infinity;
+
+    return boundaryFinite && boundaryChordTolerance > 0.0 &&
+           surfaceFinite && surfaceChordTolerance > 0.0 &&
+           geometryFinite && geometricTolerance > 0.0 &&
            minimumBoundarySubdivisionDepth >= 0 &&
            maximumBoundarySubdivisionDepth >= minimumBoundarySubdivisionDepth &&
            maximumBoundarySubdivisionDepth <= MaximumAllowedBoundarySubdivisionDepth &&
@@ -1607,20 +1514,25 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
                                         const ParametricFaceMeshOptions& options,
                                         const ParametricFaceMeshPolicy& policy)
 {
+    // 检查Face拓扑、参数域策略及三角化参数是否满足共享核心前置条件。
     if (!canMesh(face, policy) || !options.isValid())
     {
         return FaceMesh();
     }
 
     const Geometry_Surface& surface = face.geometry();
+
+    // 将每条trimming Wire离散为一个UV参数空间闭合环。
     std::vector<Ring2D> rings;
     rings.reserve(face.wireCount());
 
+    //将三维定义域里的环采样为UV参数域的二维环
     for (std::size_t wireIndex = 0; wireIndex < face.wireCount(); ++wireIndex)
     {
         Ring2D ring;
         ring.depth = 0;
 
+        // 按Wire中的Edge-use顺序采样P-Curve，并处理相邻Edge的周期连接和参数奇点连接。
         if (!sampleWire(face.wire(wireIndex), surface, options, policy, ring.points))
         {
             return FaceMesh();
@@ -1629,27 +1541,33 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
         rings.push_back(ring);
     }
 
+    // U为周期参数时，将各独立UV环整体平移整数个U周期，使其落入同一个连续参数图中。
     if (policy.periodicU && !normalizeRingPeriods(rings, 0, surface.uPeriod(), options.geometricTolerance))
     {
         return FaceMesh();
     }
 
+    // V为周期参数时，将各独立UV环整体平移整数个V周期，使其落入同一个连续参数图中。
     if (policy.periodicV && !normalizeRingPeriods(rings, 1, surface.vPeriod(), options.geometricTolerance))
     {
         return FaceMesh();
     }
 
+    // 根据Ring之间的包含关系计算嵌套深度；偶数层为填充区域外边界，奇数层为孔边界。
     calculateRingDepths(rings, options.geometricTolerance);
 
+    // 在UV参数空间中对全部有效Face区域执行二维三角化。
     std::vector<Triangle2D> triangles;
 
     for (std::size_t ringIndex = 0; ringIndex < rings.size(); ++ringIndex)
     {
+        // 奇数深度Ring表示Hole，不单独作为填充区域三角化。
         if ((rings[ringIndex].depth % 2) != 0)
         {
             continue;
         }
 
+        // 收集当前填充Ring直接包含的下一层Hole。
         std::vector<const Ring2D*> holes;
 
         for (std::size_t otherIndex = 0; otherIndex < rings.size(); ++otherIndex)
@@ -1665,6 +1583,7 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
             }
         }
 
+        // 将Hole桥接到当前外Ring形成弱简单多边形，再通过耳切生成UV三角形。
         if (!triangulateFilledRing(rings, rings[ringIndex], holes, options.geometricTolerance, triangles))
         {
             return FaceMesh();
@@ -1676,6 +1595,7 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
         return FaceMesh();
     }
 
+    // 验证所有生成三角形都位于Face的even-odd trimming有效区域内。
     for (std::size_t index = 0; index < triangles.size(); ++index)
     {
         const Triangle2D& triangle = triangles[index];
@@ -1687,6 +1607,7 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
         }
     }
 
+    // 将独立Triangle2D转换为共享UV顶点的索引三角网格，为后续共享边一致细分做准备。
     std::vector<MyMath::Vector2> parameterVertices;
     std::vector<IndexedTriangle> indexedTriangles;
 
@@ -1695,11 +1616,13 @@ FaceMesh ParametricFaceMesherCore::mesh(const Topology_Face& face,
         return FaceMesh();
     }
 
+    // 根据UV网格边映射到三维Surface后的实际弦高误差执行共享边一致自适应细分。
     if (!refineSurface(surface, options, parameterVertices, indexedTriangles))
     {
         return FaceMesh();
     }
 
+    // 将最终UV顶点映射到三维Surface，计算Face方向法向并生成最终FaceMesh。
     return buildFaceMesh(face, parameterVertices, indexedTriangles, policy, options.geometricTolerance);
 }
 

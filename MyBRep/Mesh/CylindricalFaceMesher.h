@@ -2,30 +2,21 @@
 #define MYBREP_MESH_CYLINDRICALFACEMESHER_H
 
 #include "MyBRep/Mesh/FaceMesh.h"
+#include "MyBRep/Mesh/ParametricFaceMesherCore.h"
 #include "MyBRep/Topology/Face/Topology_Face.h"
 
 namespace MyBRep
 {
 
-// 圆柱Face边界离散、周期参数展开和曲面三角化参数。
-struct CylindricalFaceMeshOptions
+// 圆柱Surface Face三角化参数。
+struct CylindricalFaceMeshOptions : public ParametricFaceMeshOptions
 {
     CylindricalFaceMeshOptions();
-
-    // 判断当前参数是否可用于圆柱Face三角化。
-    bool isValid() const;
-
-    double boundaryChordTolerance;      // trimming P-Curve映射到三维圆柱后允许的最大边界弦误差。
-    double surfaceChordTolerance;       // 圆柱Surface被三角形近似时允许的最大径向弦高误差。
-    double geometricTolerance;          // UV点连接、合并、共线、相交和周期对齐使用的参数空间几何容差。
-    int minimumBoundarySubdivisionDepth;// 非线性或周期边界至少执行的二分深度。
-    int maximumBoundarySubdivisionDepth;// trimming边界自适应细分允许的最大二分深度。
-    int maximumSurfaceSubdivisionRounds;// 圆柱Surface共享边一致细分允许的最大迭代轮数。
 };
 
-// 将具有显式闭合trimming Wire的圆柱Topology_Face离散为三角网格。
-// Face全部Wire继续按even-odd规则解释；U周期方向会展开到一个连续参数图中。
-// 当前要求全部Wire能够共同落入跨度不超过一个U周期的连续展开图。
+// U周期正则圆柱Surface Face Mesher。
+// 使用ParametricFaceMesherCore执行边界采样、周期展开、区域三角化和曲面细分。
+// 继续限制单个曲面参数边最多跨越90°，避免过大弦误差配置产生跨越圆柱背面的宽三角形。
 class CylindricalFaceMesher
 {
 public:
@@ -33,8 +24,7 @@ public:
     static bool canMesh(const Topology_Face& face);
 
     // 三角化圆柱Face；前置条件、周期展开或曲面细分失败时返回空FaceMesh。
-    static FaceMesh mesh(const Topology_Face& face,
-                         const CylindricalFaceMeshOptions& options = CylindricalFaceMeshOptions());
+    static FaceMesh mesh(const Topology_Face& face, const CylindricalFaceMeshOptions& options = CylindricalFaceMeshOptions());
 };
 
 }

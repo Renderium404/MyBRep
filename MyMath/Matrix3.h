@@ -137,8 +137,12 @@ public:
     // 判断矩阵在指定误差下是否可逆。
     bool isInvertible(double epsilon = DefaultEpsilon) const;
 
+    /// 比较运算
+
     // 判断两个矩阵的对应元素是否近似相等。
     bool isEqualTo(const Matrix3& other, double epsilon = DefaultEpsilon) const;
+    bool operator==(const Matrix3& other) const{return isEqualTo(other);}
+    bool operator!=(const Matrix3& other) const{return !isEqualTo(other);}
 
     /// 矩阵特征
 

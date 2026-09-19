@@ -1,6 +1,7 @@
-#ifndef MYBREPOPENGL_DISPLAY_BREPDISPLAYOBJECT_H
+﻿#ifndef MYBREPOPENGL_DISPLAY_BREPDISPLAYOBJECT_H
 #define MYBREPOPENGL_DISPLAY_BREPDISPLAYOBJECT_H
 
+#include "MyBRepOpenGL/Display/BRepSolidGeometryResource.h"
 #include "MyOpenGL/Core/Resource.h"
 #include "MyOpenGL/Item/RenderItem.h"
 #include "MyOpenGL/Material/Material.h"
@@ -33,9 +34,10 @@ struct BRepDisplayObject
     void clear();
 
     BRepDisplayId id;                    // BRepViewerWidget分配的显示对象ID。
-    RenderItemId itemId;                 // ItemManager拥有的RenderItem。
-    ResourceId surfaceGeometryId;        // ResourceManager拥有的Face表面BufferGeometry。
-    ResourceId wireframeGeometryId;      // ResourceManager拥有的B-Rep边界BufferGeometry。
+    RenderItemId itemId;                 // ItemManager拥有的RenderItem；每个显示实例独立拥有一份。
+    BRepSolidGeometryResourceId solidGeometryResourceId; // 非零时表示Surface/Boundary Geometry来自共享Solid资源缓存。
+    ResourceId surfaceGeometryId;        // ResourceManager中的Face表面BufferGeometry，可由多个Solid实例共享。
+    ResourceId wireframeGeometryId;      // ResourceManager中的B-Rep边界BufferGeometry，可由多个Solid实例共享。
     MaterialId surfaceMaterialId;        // MaterialManager拥有的Face表面Material。
     MaterialId wireframeMaterialId;      // MaterialManager拥有的B-Rep边界Material。
 };

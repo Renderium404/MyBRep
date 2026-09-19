@@ -8,81 +8,16 @@
 namespace MyMath
 {
 
-const double Vector3::DefaultEpsilon = 1.0e-12; // 默认浮点比较误差。
+const double Vector3::DefaultEpsilon = 1.0e-12;
 
 Vector3::Vector3()
-    : m_x(0.0)
-    , m_y(0.0)
-    , m_z(0.0)
+    : m_x(0.0), m_y(0.0), m_z(0.0)
 {
 }
 
 Vector3::Vector3(double x, double y, double z)
-    : m_x(x)
-    , m_y(y)
-    , m_z(z)
+    : m_x(x), m_y(y), m_z(z)
 {
-}
-
-/// 数据创建
-
-Vector3 Vector3::zero()
-{
-    return Vector3();
-}
-
-Vector3 Vector3::unitX()
-{
-    return Vector3(1.0, 0.0, 0.0);
-}
-
-Vector3 Vector3::unitY()
-{
-    return Vector3(0.0, 1.0, 0.0);
-}
-
-Vector3 Vector3::unitZ()
-{
-    return Vector3(0.0, 0.0, 1.0);
-}
-
-/// 分量访问
-
-double Vector3::x() const
-{
-    return m_x;
-}
-
-double Vector3::y() const
-{
-    return m_y;
-}
-
-double Vector3::z() const
-{
-    return m_z;
-}
-
-void Vector3::setX(double x)
-{
-    m_x = x;
-}
-
-void Vector3::setY(double y)
-{
-    m_y = y;
-}
-
-void Vector3::setZ(double z)
-{
-    m_z = z;
-}
-
-void Vector3::set(double x, double y, double z)
-{
-    m_x = x;
-    m_y = y;
-    m_z = z;
 }
 
 /// 状态判断
@@ -94,21 +29,25 @@ bool Vector3::isFinite() const
 
 bool Vector3::isVector(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && length() > epsilon;
 }
 
 bool Vector3::isZero(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && length() <= epsilon;
 }
 
 bool Vector3::isUnit(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && std::fabs(length() - 1.0) <= epsilon;
 }
 
 bool Vector3::isEqualTo(const Vector3& other, double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && other.isFinite() && distanceTo(other) <= epsilon;
 }
 
@@ -129,7 +68,6 @@ double Vector3::distanceSquaredTo(const Vector3& other) const
     const double deltaX = m_x - other.m_x;
     const double deltaY = m_y - other.m_y;
     const double deltaZ = m_z - other.m_z;
-
     return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
 }
 
@@ -142,50 +80,25 @@ double Vector3::distanceTo(const Vector3& other) const
 
 Vector3 Vector3::normalized(double epsilon) const
 {
-    if (!isFinite())
-    {
-        return Vector3::zero();
-    }
+    assert(epsilon >= 0.0);
 
-    const double scale = maximumAbsolute(m_x, m_y, m_z);
+    Vector3 result(*this);
+    if (!result.normalize(epsilon)) return Vector3::zero();
 
-    if (scale == 0.0)
-    {
-        return Vector3::zero();
-    }
-
-    const double normalizedLength = scaledNorm(m_x, m_y, m_z, scale);
-
-    if (scale <= epsilon / normalizedLength)
-    {
-        return Vector3::zero();
-    }
-
-    return Vector3(m_x / scale / normalizedLength,
-                   m_y / scale / normalizedLength,
-                   m_z / scale / normalizedLength);
+    return result;
 }
 
 bool Vector3::normalize(double epsilon)
 {
-    if (!isFinite())
-    {
-        return false;
-    }
+    assert(epsilon >= 0.0);
+
+    if (!isFinite()) return false;
 
     const double scale = maximumAbsolute(m_x, m_y, m_z);
-
-    if (scale == 0.0)
-    {
-        return false;
-    }
+    if (scale == 0.0) return false;
 
     const double normalizedLength = scaledNorm(m_x, m_y, m_z, scale);
-
-    if (scale <= epsilon / normalizedLength)
-    {
-        return false;
-    }
+    if (scale <= epsilon / normalizedLength) return false;
 
     m_x = m_x / scale / normalizedLength;
     m_y = m_y / scale / normalizedLength;

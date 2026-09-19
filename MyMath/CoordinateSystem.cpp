@@ -209,6 +209,17 @@ bool CoordinateSystem::isLeftHanded(double epsilon) const
     return handedness < 0.0;
 }
 
+bool CoordinateSystem::isRightHanded(double epsilon) const
+{
+    if (!isValid(epsilon)) return false;
+    return !isLeftHanded(epsilon);
+}
+
+bool CoordinateSystem::isEqualTo(const CoordinateSystem& other, double epsilon) const
+{
+    return m_origin.isEqualTo(other.m_origin, epsilon) && m_axes.isEqualTo(other.m_axes, epsilon);
+}
+
 bool CoordinateSystem::orientation(Quaternion& result, double epsilon) const
 {
     if (!isValid(epsilon) || isLeftHanded(epsilon))
@@ -268,6 +279,14 @@ CoordinateSystem CoordinateSystem::toGlobalFromRelative(const CoordinateSystem& 
     result.m_origin = toGlobal(relativeSystem.m_origin);
     result.m_axes = m_axes * relativeSystem.m_axes;
 
+    return result;
+}
+
+CoordinateSystem CoordinateSystem::toRelativeFromGlobal(const CoordinateSystem& globalSystem) const
+{
+    CoordinateSystem result;
+    result.m_origin = toLocal(globalSystem.m_origin);
+    result.m_axes = m_axes.transposed() * globalSystem.m_axes;
     return result;
 }
 

@@ -1,8 +1,15 @@
-#include "BRepViewerWidget.h"
+﻿#include "BRepViewerWidget.h"
 
 #include <QDebug>
 #include <QOpenGLContext>
+#include <QQuaternion>
 #include <QVector3D>
+
+#include <cmath>
+#include <vector>
+
+#include "MyMath/Matrix3.h"
+#include "MyMath/Quaternion.h"
 
 #include "MyBRepOpenGL/Builder/BRepFaceBuilder.h"
 #include "MyBRepOpenGL/Builder/BRepShellBuilder.h"
@@ -15,10 +22,12 @@
 #include "MyOpenGL/Render/MyOpenGLContext.h"
 #include "MyOpenGL/Resource/BufferGeometry.h"
 
-namespace
+namespace MyBRep
+{
+namespace Display
 {
 
-int positionValueOffset(const BufferGeometry& geometry)
+int BRepViewerWidget::positionValueOffset(const BufferGeometry& geometry)
 {
     const std::vector<GeometryVertexAttribute>& attributes = geometry.attributes();
 
@@ -33,7 +42,7 @@ int positionValueOffset(const BufferGeometry& geometry)
     return -1;
 }
 
-AxisAlignedBoundingBox geometryBounds(const BufferGeometry& geometry)
+AxisAlignedBoundingBox BRepViewerWidget::geometryBounds(const BufferGeometry& geometry)
 {
     AxisAlignedBoundingBox bounds;
     const int valuesPerVertex = geometry.valuesPerVertex();
@@ -55,7 +64,7 @@ AxisAlignedBoundingBox geometryBounds(const BufferGeometry& geometry)
     return bounds;
 }
 
-bool createDefaultBRepLighting(LightManager& lightManager)
+bool BRepViewerWidget::createDefaultBRepLighting(LightManager& lightManager)
 {
     Light* ambientLight = lightManager.createLight("BRepAmbientLight");
 
@@ -66,8 +75,7 @@ bool createDefaultBRepLighting(LightManager& lightManager)
 
     ambientLight->setAmbient();
 
-    if (!ambientLight->setColor(QVector3D(1.0f, 1.0f, 1.0f)) ||
-        !ambientLight->setIntensity(0.18f))
+    if (!ambientLight->setColor(QVector3D(1.0f, 1.0f, 1.0f)) || !ambientLight->setIntensity(0.18f))
     {
         return false;
     }
@@ -79,7 +87,6 @@ bool createDefaultBRepLighting(LightManager& lightManager)
         return false;
     }
 
-    // Directional Light保存的是光线传播方向；Renderer内部使用-direction作为指向光源方向。
     if (!keyLight->setDirectional(QVector3D(-0.45f, -0.35f, -1.0f)) ||
         !keyLight->setColor(QVector3D(1.0f, 0.97f, 0.92f)) ||
         !keyLight->setIntensity(0.78f))
@@ -94,27 +101,80 @@ bool createDefaultBRepLighting(LightManager& lightManager)
         return false;
     }
 
-    // 从主光相反侧提供较弱冷色补光，保留暗部层次但避免背光区域完全发黑。
-    if (!fillLight->setDirectional(QVector3D(0.65f, -0.10f, -0.60f)) ||
-        !fillLight->setColor(QVector3D(0.72f, 0.84f, 1.0f)) ||
-        !fillLight->setIntensity(0.24f))
+    return fillLight->setDirectional(QVector3D(0.65f, -0.10f, -0.60f)) &&
+           fillLight->setColor(QVector3D(0.72f, 0.84f, 1.0f)) &&
+           fillLight->setIntensity(0.24f);
+}
+
+bool BRepViewerWidget::decomposeItemTransform(
+    const MyMath::Matrix4& localToWorld,
+    QVector3D& position,
+    QQuaternion& rotation,
+    QVector3D& scale)
+{
+    if (!localToWorld.isAffine() || !localToWorld.isInvertible())
     {
         return false;
     }
 
+    MyMath::Vector3 axisX(localToWorld(0, 0), localToWorld(1, 0), localToWorld(2, 0));
+    MyMath::Vector3 axisY(localToWorld(0, 1), localToWorld(1, 1), localToWorld(2, 1));
+    MyMath::Vector3 axisZ(localToWorld(0, 2), localToWorld(1, 2), localToWorld(2, 2));
+
+    double scaleX = axisX.length();
+    double scaleY = axisY.length();
+    double scaleZ = axisZ.length();
+
+    if (scaleX <= 0.0 || scaleY <= 0.0 || scaleZ <= 0.0)
+    {
+        return false;
+    }
+
+    axisX /= scaleX;
+    axisY /= scaleY;
+    axisZ /= scaleZ;
+
+    const double orthogonalTolerance = 1.0e-10;
+
+    if (std::fabs(MyMath::Vector3::dot(axisX, axisY)) > orthogonalTolerance ||
+        std::fabs(MyMath::Vector3::dot(axisY, axisZ)) > orthogonalTolerance ||
+        std::fabs(MyMath::Vector3::dot(axisZ, axisX)) > orthogonalTolerance)
+    {
+        return false;
+    }
+
+    if (MyMath::Vector3::dot(MyMath::Vector3::cross(axisX, axisY), axisZ) < 0.0)
+    {
+        axisZ *= -1.0;
+        scaleZ = -scaleZ;
+    }
+
+    const MyMath::Matrix3 rotationMatrix = MyMath::Matrix3::fromColumns(axisX, axisY, axisZ);
+
+    if (!rotationMatrix.isRotationMatrix(orthogonalTolerance))
+    {
+        return false;
+    }
+
+    const MyMath::Quaternion quaternion = MyMath::Quaternion::fromRotationMatrix(rotationMatrix, orthogonalTolerance);
+
+    if (!quaternion.isUnit(orthogonalTolerance))
+    {
+        return false;
+    }
+
+    const MyMath::Vector3 translation = localToWorld.translation();
+    position = QVector3D(static_cast<float>(translation.x()), static_cast<float>(translation.y()), static_cast<float>(translation.z()));
+    rotation = QQuaternion(static_cast<float>(quaternion.w()), static_cast<float>(quaternion.x()),
+                           static_cast<float>(quaternion.y()), static_cast<float>(quaternion.z()));
+    scale = QVector3D(static_cast<float>(scaleX), static_cast<float>(scaleY), static_cast<float>(scaleZ));
     return true;
 }
-
-}
-
-namespace MyBRep
-{
-namespace Display
-{
 
 BRepViewerWidget::BRepViewerWidget(QWidget* parent)
     : OpenGLViewerWidget(parent)
     , m_nextDisplayId(1)
+    , m_nextSolidGeometryResourceId(1)
 {
     if (!createDefaultBRepLighting(lightManager()))
     {
@@ -145,7 +205,7 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Topology_Edge& edge, const My
         return InvalidBRepDisplayId;
     }
 
-    return attachWireframe(BRepWireframeBuilder::build(edge, localToWorld, name + "_WireframeGeometry", style.wireframe), name, style);
+    return attachWireframe(BRepWireframeBuilder::build(edge, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe), name, style);
 }
 
 /// Topology Wire
@@ -163,7 +223,7 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Topology_Wire& wire, const My
         return InvalidBRepDisplayId;
     }
 
-    return attachWireframe(BRepWireframeBuilder::build(wire, localToWorld, name + "_WireframeGeometry", style.wireframe), name, style);
+    return attachWireframe(BRepWireframeBuilder::build(wire, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe), name, style);
 }
 
 /// Topology Face
@@ -181,7 +241,7 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Topology_Face& face, const My
         return InvalidBRepDisplayId;
     }
 
-    return attachWireframe(BRepWireframeBuilder::build(face, localToWorld, name + "_WireframeGeometry", style.wireframe), name, style);
+    return attachWireframe(BRepWireframeBuilder::build(face, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe), name, style);
 }
 
 BRepDisplayId BRepViewerWidget::addFace(const Topology_Face& face, const QString& name, const BRepDisplayStyle& style)
@@ -198,10 +258,10 @@ BRepDisplayId BRepViewerWidget::addFace(const Topology_Face& face, const MyMath:
     }
 
     BufferGeometry* surfaceGeometry =
-        BRepFaceBuilder::build(face, localToWorld, name + "_SurfaceGeometry", style.surface);
+        BRepFaceBuilder::build(face, localToWorld, name + "_SurfaceGeometry", m_buildOptions.surface);
 
     BufferGeometry* wireframeGeometry =
-        BRepWireframeBuilder::build(face, localToWorld, name + "_WireframeGeometry", style.wireframe);
+        BRepWireframeBuilder::build(face, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe);
 
     if (surfaceGeometry == 0 || wireframeGeometry == 0)
     {
@@ -228,7 +288,7 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Topology_Shell& shell, const 
         return InvalidBRepDisplayId;
     }
 
-    return attachWireframe(BRepWireframeBuilder::build(shell, localToWorld, name + "_WireframeGeometry", style.wireframe), name, style);
+    return attachWireframe(BRepWireframeBuilder::build(shell, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe), name, style);
 }
 
 BRepDisplayId BRepViewerWidget::addShell(const Topology_Shell& shell, const QString& name, const BRepDisplayStyle& style)
@@ -245,8 +305,8 @@ BRepDisplayId BRepViewerWidget::addShell(const Topology_Shell& shell, const MyMa
     }
 
     BRepShellBuildOptions options;
-    options.surface = style.surface;
-    options.wireframe = style.wireframe;
+    options.surface = m_buildOptions.surface;
+    options.wireframe = m_buildOptions.wireframe;
 
     BufferGeometry* surfaceGeometry =
         BRepShellBuilder::buildSurface(shell, localToWorld, name + "_SurfaceGeometry", options);
@@ -279,7 +339,7 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Topology_Solid& solid, const 
         return InvalidBRepDisplayId;
     }
 
-    return attachWireframe(BRepWireframeBuilder::build(solid, localToWorld, name + "_WireframeGeometry", style.wireframe), name, style);
+    return attachWireframe(BRepWireframeBuilder::build(solid, localToWorld, name + "_WireframeGeometry", m_buildOptions.wireframe), name, style);
 }
 
 BRepDisplayId BRepViewerWidget::addSolid(const Topology_Solid& solid, const QString& name, const BRepDisplayStyle& style)
@@ -295,15 +355,22 @@ BRepDisplayId BRepViewerWidget::addSolid(const Topology_Solid& solid, const MyMa
         return InvalidBRepDisplayId;
     }
 
-    BRepSolidBuildOptions options;
-    options.surface = style.surface;
-    options.wireframe = style.wireframe;
+    const BRepSolidBuildOptions& options = m_buildOptions;
 
-    BufferGeometry* surfaceGeometry =
-        BRepSolidBuilder::buildSurface(solid, localToWorld, name + "_SurfaceGeometry", options);
+    QVector3D position;
+    QQuaternion rotation;
+    QVector3D scale;
 
-    BufferGeometry* wireframeGeometry =
-        BRepSolidBuilder::buildBoundary(solid, localToWorld, name + "_WireframeGeometry", options);
+    if (decomposeItemTransform(localToWorld, position, rotation, scale))
+    {
+        const BRepSolidGeometryResourceId geometryResourceId = acquireSolidGeometryResource(solid, name);
+        return geometryResourceId != InvalidBRepSolidGeometryResourceId
+                   ? attachSharedSolidDisplay(geometryResourceId, localToWorld, name, style)
+                   : InvalidBRepDisplayId;
+    }
+
+    BufferGeometry* surfaceGeometry = BRepSolidBuilder::buildSurface(solid, localToWorld, name + "_SurfaceGeometry", options);
+    BufferGeometry* wireframeGeometry = BRepSolidBuilder::buildBoundary(solid, localToWorld, name + "_WireframeGeometry", options);
 
     if (surfaceGeometry == 0 || wireframeGeometry == 0)
     {
@@ -355,6 +422,29 @@ BRepDisplayId BRepViewerWidget::addShell(const Shell& shell, const QString& name
 BRepDisplayId BRepViewerWidget::addSolid(const Solid& solid, const QString& name, const BRepDisplayStyle& style)
 {
     return solid.isValid() ? addSolid(solid.topology(), solid.localToWorld(), name, style) : InvalidBRepDisplayId;
+}
+
+/// 全局离散参数
+
+const BRepSolidBuildOptions& BRepViewerWidget::buildOptions() const
+{
+    return m_buildOptions;
+}
+
+bool BRepViewerWidget::setBuildOptions(const BRepSolidBuildOptions& options)
+{
+    if (!options.isValid() || !m_displays.empty())
+    {
+        return false;
+    }
+
+    if (!clearSolidGeometryResources())
+    {
+        return false;
+    }
+
+    m_buildOptions = options;
+    return true;
 }
 
 /// 显示对象管理
@@ -423,9 +513,304 @@ bool BRepViewerWidget::clearBRepDisplays()
     if (m_displays.empty())
     {
         m_nextDisplayId = 1;
+
+        if (!clearSolidGeometryResources())
+        {
+            result = false;
+        }
     }
 
     update();
+    return result;
+}
+
+/// 共享Solid Geometry资源
+
+BRepSolidGeometryResourceId BRepViewerWidget::findSolidGeometryResource(const Topology_Solid& solid) const
+{
+    for (SolidGeometryResourceMap::const_iterator iterator = m_solidGeometryResources.begin();
+         iterator != m_solidGeometryResources.end(); ++iterator)
+    {
+        if (iterator->second.matches(solid))
+        {
+            return iterator->first;
+        }
+    }
+
+    return InvalidBRepSolidGeometryResourceId;
+}
+
+BRepSolidGeometryResourceId BRepViewerWidget::acquireSolidGeometryResource(const Topology_Solid& solid,const QString& name)
+{
+    const BRepSolidGeometryResourceId existing = findSolidGeometryResource(solid);
+
+    if (existing != InvalidBRepSolidGeometryResourceId)
+    {
+        return existing;
+    }
+
+    BufferGeometry* surfaceGeometry = BRepSolidBuilder::buildSurface(solid, name + "_SharedSurfaceGeometry", m_buildOptions);
+    BufferGeometry* wireframeGeometry = BRepSolidBuilder::buildBoundary(solid, name + "_SharedWireframeGeometry", m_buildOptions);
+
+    if (surfaceGeometry == 0 || wireframeGeometry == 0)
+    {
+        delete surfaceGeometry;
+        delete wireframeGeometry;
+        return InvalidBRepSolidGeometryResourceId;
+    }
+
+    const ResourceId surfaceGeometryId = resourceManager().adopt(surfaceGeometry);
+
+    if (surfaceGeometryId == InvalidResourceId)
+    {
+        delete surfaceGeometry;
+        delete wireframeGeometry;
+        return InvalidBRepSolidGeometryResourceId;
+    }
+
+    const ResourceId wireframeGeometryId = resourceManager().adopt(wireframeGeometry);
+
+    if (wireframeGeometryId == InvalidResourceId)
+    {
+        delete wireframeGeometry;
+        resourceManager().remove(surfaceGeometryId);
+        return InvalidBRepSolidGeometryResourceId;
+    }
+
+    const BRepSolidGeometryResourceId id = allocateSolidGeometryResourceId();
+    m_solidGeometryResources[id] = BRepSolidGeometryResource(id, solid, surfaceGeometryId, wireframeGeometryId);
+    return id;
+}
+
+const BRepSolidGeometryResource* BRepViewerWidget::solidGeometryResource(BRepSolidGeometryResourceId id) const
+{
+    SolidGeometryResourceMap::const_iterator iterator = m_solidGeometryResources.find(id);
+    return iterator != m_solidGeometryResources.end() ? &iterator->second : 0;
+}
+
+BRepDisplayId BRepViewerWidget::attachSharedSolidDisplay(
+    BRepSolidGeometryResourceId geometryResourceId,
+    const MyMath::Matrix4& localToWorld,
+    const QString& name,
+    const BRepDisplayStyle& style)
+{
+    const BRepSolidGeometryResource* shared = solidGeometryResource(geometryResourceId);
+
+    if (shared == 0 || !shared->isValid() || !style.isValid())
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    BufferGeometry* surfaceGeometry = static_cast<BufferGeometry*>(resourceManager().get(shared->surfaceGeometryId()));
+    BufferGeometry* wireframeGeometry = static_cast<BufferGeometry*>(resourceManager().get(shared->wireframeGeometryId()));
+
+    if (surfaceGeometry == 0 || wireframeGeometry == 0)
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    const AxisAlignedBoundingBox surfaceBounds = geometryBounds(*surfaceGeometry);
+    const AxisAlignedBoundingBox wireframeBounds = geometryBounds(*wireframeGeometry);
+
+    if (!surfaceBounds.isValid() || !wireframeBounds.isValid())
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    QVector3D position;
+    QQuaternion rotation;
+    QVector3D scale;
+
+    if (!decomposeItemTransform(localToWorld, position, rotation, scale))
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    Material* surfaceMaterial = materialManager().createMaterial(name + "_SurfaceMaterial");
+
+    if (surfaceMaterial == 0)
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    Material* wireframeMaterial = materialManager().createMaterial(name + "_WireframeMaterial");
+
+    if (wireframeMaterial == 0)
+    {
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    if (!surfaceMaterial->setSurfaceMode(SurfaceMode::Color) ||
+        !surfaceMaterial->setColor(style.surfaceColor) ||
+        !wireframeMaterial->setSurfaceMode(SurfaceMode::Color) ||
+        !wireframeMaterial->setColor(style.wireColor))
+    {
+        materialManager().remove(wireframeMaterial->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    surfaceMaterial->setLightingEnabled(style.surfaceLightingEnabled);
+    wireframeMaterial->setLightingEnabled(false);
+
+    RenderItem* item = itemManager().createItem(name);
+
+    if (item == 0)
+    {
+        materialManager().remove(wireframeMaterial->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    item->transform().setPosition(position);
+    item->transform().setRotation(rotation);
+    item->transform().setScale(scale);
+
+    RenderPart* wireframePart = item->createPart();
+
+    if (wireframePart == 0)
+    {
+        itemManager().remove(item->id());
+        materialManager().remove(wireframeMaterial->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    wireframePart->setGeometry(wireframeGeometry);
+    wireframePart->setMaterial(wireframeMaterial);
+    wireframePart->setLocalBounds(wireframeBounds);
+
+    RenderPart* surfacePart = item->createPart();
+
+    if (surfacePart == 0)
+    {
+        itemManager().remove(item->id());
+        materialManager().remove(wireframeMaterial->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    surfacePart->setGeometry(surfaceGeometry);
+    surfacePart->setMaterial(surfaceMaterial);
+    surfacePart->setLocalBounds(surfaceBounds);
+
+    const BRepDisplayId displayId = allocateDisplayId();
+
+    if (displayId == InvalidBRepDisplayId)
+    {
+        itemManager().remove(item->id());
+        materialManager().remove(wireframeMaterial->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    BRepDisplayObject object;
+    object.id = displayId;
+    object.itemId = item->id();
+    object.solidGeometryResourceId = geometryResourceId;
+    object.surfaceGeometryId = shared->surfaceGeometryId();
+    object.wireframeGeometryId = shared->wireframeGeometryId();
+    object.surfaceMaterialId = surfaceMaterial->id();
+    object.wireframeMaterialId = wireframeMaterial->id();
+
+    m_displays[displayId] = object;
+    update();
+    return displayId;
+}
+
+bool BRepViewerWidget::removeGeometryResources(ResourceId surfaceGeometryId,ResourceId wireframeGeometryId)
+{
+    Resource* surfaceResource =
+        surfaceGeometryId != InvalidResourceId && resourceManager().contains(surfaceGeometryId) ? resourceManager().get(surfaceGeometryId) : 0;
+    Resource* wireframeResource =
+        wireframeGeometryId != InvalidResourceId && resourceManager().contains(wireframeGeometryId) ? resourceManager().get(wireframeGeometryId) : 0;
+
+    const bool needsContext =
+        (surfaceResource != 0 && surfaceResource->isInitialized()) ||
+        (wireframeResource != 0 && wireframeResource->isInitialized());
+
+    MyOpenGLContext cleanupContext;
+    QOpenGLFunctions_3_3_Core* gl = 0;
+    bool contextCurrent = false;
+
+    if (needsContext)
+    {
+        if (context() == 0)
+        {
+            return false;
+        }
+
+        makeCurrent();
+
+        if (QOpenGLContext::currentContext() != context())
+        {
+            doneCurrent();
+            return false;
+        }
+
+        if (!cleanupContext.initialize())
+        {
+            doneCurrent();
+            return false;
+        }
+
+        gl = cleanupContext.gl();
+
+        if (gl == 0)
+        {
+            doneCurrent();
+            return false;
+        }
+
+        contextCurrent = true;
+    }
+
+    bool result = true;
+
+    if (wireframeGeometryId != InvalidResourceId && resourceManager().contains(wireframeGeometryId))
+    {
+        result = resourceManager().remove(wireframeGeometryId, gl) && result;
+    }
+
+    if (surfaceGeometryId != InvalidResourceId && resourceManager().contains(surfaceGeometryId))
+    {
+        result = resourceManager().remove(surfaceGeometryId, gl) && result;
+    }
+
+    if (contextCurrent)
+    {
+        doneCurrent();
+    }
+
+    return result;
+}
+
+bool BRepViewerWidget::clearSolidGeometryResources()
+{
+    bool result = true;
+    SolidGeometryResourceMap::iterator iterator = m_solidGeometryResources.begin();
+
+    while (iterator != m_solidGeometryResources.end())
+    {
+        SolidGeometryResourceMap::iterator current = iterator;
+        ++iterator;
+
+        if (removeGeometryResources(current->second.surfaceGeometryId(), current->second.wireframeGeometryId()))
+        {
+            m_solidGeometryResources.erase(current);
+        }
+        else
+        {
+            result = false;
+        }
+    }
+
+    if (m_solidGeometryResources.empty())
+    {
+        m_nextSolidGeometryResourceId = 1;
+    }
+
     return result;
 }
 
@@ -666,68 +1051,15 @@ BRepDisplayId BRepViewerWidget::attachSurfaceDisplay(BufferGeometry* surfaceGeom
 
 bool BRepViewerWidget::removeDisplayResources(BRepDisplayObject& object)
 {
-    Resource* surfaceResource =
-        object.surfaceGeometryId != InvalidResourceId ? resourceManager().get(object.surfaceGeometryId) : 0;
-
-    Resource* wireframeResource =
-        object.wireframeGeometryId != InvalidResourceId ? resourceManager().get(object.wireframeGeometryId) : 0;
-
-    const bool needsContext =
-        (surfaceResource != 0 && surfaceResource->isInitialized()) ||
-        (wireframeResource != 0 && wireframeResource->isInitialized());
-
-    MyOpenGLContext cleanupContext;
-    QOpenGLFunctions_3_3_Core* gl = 0;
-    bool contextCurrent = false;
-
-    if (needsContext)
-    {
-        if (context() == 0)
-        {
-            return false;
-        }
-
-        makeCurrent();
-
-        if (QOpenGLContext::currentContext() != context())
-        {
-            doneCurrent();
-            return false;
-        }
-
-        if (!cleanupContext.initialize())
-        {
-            doneCurrent();
-            return false;
-        }
-
-        gl = cleanupContext.gl();
-
-        if (gl == 0)
-        {
-            doneCurrent();
-            return false;
-        }
-
-        contextCurrent = true;
-    }
-
-    // RenderItem/RenderPart只借用Geometry和Material，因此必须先解除Item引用。
     if (object.itemId != InvalidRenderItemId && itemManager().contains(object.itemId))
     {
         if (!itemManager().remove(object.itemId))
         {
-            if (contextCurrent)
-            {
-                doneCurrent();
-            }
-
             return false;
         }
     }
 
     object.itemId = InvalidRenderItemId;
-
     bool result = true;
 
     if (object.wireframeMaterialId != InvalidMaterialId && materialManager().contains(object.wireframeMaterialId))
@@ -754,33 +1086,12 @@ bool BRepViewerWidget::removeDisplayResources(BRepDisplayObject& object)
         }
     }
 
-    if (object.wireframeGeometryId != InvalidResourceId && resourceManager().contains(object.wireframeGeometryId))
+    if (object.solidGeometryResourceId == InvalidBRepSolidGeometryResourceId)
     {
-        if (resourceManager().remove(object.wireframeGeometryId, gl))
-        {
-            object.wireframeGeometryId = InvalidResourceId;
-        }
-        else
+        if (!removeGeometryResources(object.surfaceGeometryId, object.wireframeGeometryId))
         {
             result = false;
         }
-    }
-
-    if (object.surfaceGeometryId != InvalidResourceId && resourceManager().contains(object.surfaceGeometryId))
-    {
-        if (resourceManager().remove(object.surfaceGeometryId, gl))
-        {
-            object.surfaceGeometryId = InvalidResourceId;
-        }
-        else
-        {
-            result = false;
-        }
-    }
-
-    if (contextCurrent)
-    {
-        doneCurrent();
     }
 
     if (result)
@@ -802,6 +1113,19 @@ BRepDisplayId BRepViewerWidget::allocateDisplayId()
 
     const BRepDisplayId id = m_nextDisplayId;
     ++m_nextDisplayId;
+    return id;
+}
+
+BRepSolidGeometryResourceId BRepViewerWidget::allocateSolidGeometryResourceId()
+{
+    while (m_nextSolidGeometryResourceId == InvalidBRepSolidGeometryResourceId ||
+           m_solidGeometryResources.find(m_nextSolidGeometryResourceId) != m_solidGeometryResources.end())
+    {
+        ++m_nextSolidGeometryResourceId;
+    }
+
+    const BRepSolidGeometryResourceId id = m_nextSolidGeometryResourceId;
+    ++m_nextSolidGeometryResourceId;
     return id;
 }
 

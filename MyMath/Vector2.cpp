@@ -2,128 +2,52 @@
 
 #include <cassert>
 #include <cmath>
-#include <limits>
 
-namespace
-{
-
-// 判断浮点数是否为有限值。
-bool isFiniteValue(double value)
-{
-    const double infinity = (std::numeric_limits<double>::infinity)();
-    return value == value && value != infinity && value != -infinity;
-}
-
-// 使用最大分量缩放计算二维长度，避免中间平方溢出。
-double scaledLength(double x, double y)
-{
-    const double absoluteX = std::fabs(x);
-    const double absoluteY = std::fabs(y);
-    const double scale = absoluteX > absoluteY ? absoluteX : absoluteY;
-
-    if (scale == 0.0)
-    {
-        return 0.0;
-    }
-
-    if (!isFiniteValue(scale))
-    {
-        return scale;
-    }
-
-    const double scaledX = x / scale;
-    const double scaledY = y / scale;
-    return scale * std::sqrt(scaledX * scaledX + scaledY * scaledY);
-}
-
-}
+#include "MathUtils.h"
 
 namespace MyMath
 {
 
-const double Vector2::DefaultEpsilon = 1.0e-12; // 与Vector3保持一致的默认浮点比较误差。
+const double Vector2::DefaultEpsilon = 1.0e-12;
 
 Vector2::Vector2()
-    : m_x(0.0)
-    , m_y(0.0)
+    : m_x(0.0), m_y(0.0)
 {
 }
 
 Vector2::Vector2(double x, double y)
-    : m_x(x)
-    , m_y(y)
+    : m_x(x), m_y(y)
 {
-}
-
-/// 数据创建
-
-Vector2 Vector2::zero()
-{
-    return Vector2();
-}
-
-Vector2 Vector2::unitX()
-{
-    return Vector2(1.0, 0.0);
-}
-
-Vector2 Vector2::unitY()
-{
-    return Vector2(0.0, 1.0);
-}
-
-/// 分量访问
-
-double Vector2::x() const
-{
-    return m_x;
-}
-
-double Vector2::y() const
-{
-    return m_y;
-}
-
-void Vector2::setX(double x)
-{
-    m_x = x;
-}
-
-void Vector2::setY(double y)
-{
-    m_y = y;
-}
-
-void Vector2::set(double x, double y)
-{
-    m_x = x;
-    m_y = y;
 }
 
 /// 状态判断
 
 bool Vector2::isFinite() const
 {
-    return isFiniteValue(m_x) && isFiniteValue(m_y);
+    return MyMath::isFinite(m_x) && MyMath::isFinite(m_y);
 }
 
 bool Vector2::isVector(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && length() > epsilon;
 }
 
 bool Vector2::isZero(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && length() <= epsilon;
 }
 
 bool Vector2::isUnit(double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && std::fabs(length() - 1.0) <= epsilon;
 }
 
 bool Vector2::isEqualTo(const Vector2& other, double epsilon) const
 {
+    assert(epsilon >= 0.0);
     return isFinite() && other.isFinite() && distanceTo(other) <= epsilon;
 }
 
@@ -136,7 +60,7 @@ double Vector2::lengthSquared() const
 
 double Vector2::length() const
 {
-    return scaledLength(m_x, m_y);
+    return MyMath::norm(m_x, m_y);
 }
 
 double Vector2::distanceSquaredTo(const Vector2& other) const
@@ -148,29 +72,36 @@ double Vector2::distanceSquaredTo(const Vector2& other) const
 
 double Vector2::distanceTo(const Vector2& other) const
 {
-    return scaledLength(m_x - other.m_x, m_y - other.m_y);
+    return MyMath::norm(m_x - other.m_x, m_y - other.m_y);
 }
 
 /// 向量计算
 
 Vector2 Vector2::normalized(double epsilon) const
 {
-    if (!isVector(epsilon))
-    {
-        return Vector2::zero();
-    }
+    assert(epsilon >= 0.0);
 
-    return *this / length();
+    Vector2 result(*this);
+    if (!result.normalize(epsilon)) return Vector2::zero();
+
+    return result;
 }
 
 bool Vector2::normalize(double epsilon)
 {
-    if (!isVector(epsilon))
-    {
-        return false;
-    }
+    assert(epsilon >= 0.0);
 
-    *this /= length();
+    if (!isFinite()) return false;
+
+    const double scale = maximumAbsolute(m_x, m_y);
+    if (scale == 0.0) return false;
+
+    const double normalizedLength = scaledNorm(m_x, m_y, scale);
+    if (scale <= epsilon / normalizedLength) return false;
+
+    m_x = m_x / scale / normalizedLength;
+    m_y = m_y / scale / normalizedLength;
+
     return true;
 }
 
@@ -236,6 +167,7 @@ Vector2& Vector2::operator*=(double scalar)
 Vector2& Vector2::operator/=(double scalar)
 {
     assert(scalar != 0.0);
+
     m_x /= scalar;
     m_y /= scalar;
     return *this;

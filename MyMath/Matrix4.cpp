@@ -138,6 +138,69 @@ const double* Matrix4::data() const
     return m_values.data();
 }
 
+/// 行列访问
+
+Vector4 Matrix4::row(int indexValue) const
+{
+    checkVectorIndex(indexValue);
+    const int offset = indexValue * Size;
+    return Vector4(m_values[offset], m_values[offset + 1], m_values[offset + 2], m_values[offset + 3]);
+}
+
+Vector4 Matrix4::column(int indexValue) const
+{
+    checkVectorIndex(indexValue);
+    return Vector4(m_values[indexValue], m_values[Size + indexValue], m_values[2 * Size + indexValue], m_values[3 * Size + indexValue]);
+}
+
+Vector4 Matrix4::diagonal() const
+{
+    return Vector4(m_values[0], m_values[5], m_values[10], m_values[15]);
+}
+
+void Matrix4::setRow(int indexValue, const Vector4& value)
+{
+    checkVectorIndex(indexValue);
+    const int offset = indexValue * Size;
+    m_values[offset] = value.m_x;
+    m_values[offset + 1] = value.m_y;
+    m_values[offset + 2] = value.m_z;
+    m_values[offset + 3] = value.m_w;
+}
+
+void Matrix4::setColumn(int indexValue, const Vector4& value)
+{
+    checkVectorIndex(indexValue);
+    m_values[indexValue] = value.m_x;
+    m_values[Size + indexValue] = value.m_y;
+    m_values[2 * Size + indexValue] = value.m_z;
+    m_values[3 * Size + indexValue] = value.m_w;
+}
+
+void Matrix4::setRows(const Vector4& first, const Vector4& second, const Vector4& third, const Vector4& fourth)
+{
+    setRow(0, first);
+    setRow(1, second);
+    setRow(2, third);
+    setRow(3, fourth);
+}
+
+void Matrix4::setColumns(const Vector4& first, const Vector4& second, const Vector4& third, const Vector4& fourth)
+{
+    setColumn(0, first);
+    setColumn(1, second);
+    setColumn(2, third);
+    setColumn(3, fourth);
+}
+
+void Matrix4::setDiagonal(const Vector4& diagonal)
+{
+    m_values[0] = diagonal.m_x;
+    m_values[5] = diagonal.m_y;
+    m_values[10] = diagonal.m_z;
+    m_values[15] = diagonal.m_w;
+}
+
 /// 状态设置
 
 void Matrix4::setToZero()
@@ -402,16 +465,12 @@ double Matrix4::determinant() const
 
 /// 向量运算
 
-std::array<double, Matrix4::Size> Matrix4::transformVector(double x, double y, double z, double w) const
+Vector4 Matrix4::transformVector(const Vector4& vector) const
 {
-    std::array<double, Size> result;
-
-    result[0] = m_values[0] * x + m_values[1] * y + m_values[2] * z + m_values[3] * w;
-    result[1] = m_values[4] * x + m_values[5] * y + m_values[6] * z + m_values[7] * w;
-    result[2] = m_values[8] * x + m_values[9] * y + m_values[10] * z + m_values[11] * w;
-    result[3] = m_values[12] * x + m_values[13] * y + m_values[14] * z + m_values[15] * w;
-
-    return result;
+    return Vector4(m_values[0] * vector.m_x + m_values[1] * vector.m_y + m_values[2] * vector.m_z + m_values[3] * vector.m_w,
+                   m_values[4] * vector.m_x + m_values[5] * vector.m_y + m_values[6] * vector.m_z + m_values[7] * vector.m_w,
+                   m_values[8] * vector.m_x + m_values[9] * vector.m_y + m_values[10] * vector.m_z + m_values[11] * vector.m_w,
+                   m_values[12] * vector.m_x + m_values[13] * vector.m_y + m_values[14] * vector.m_z + m_values[15] * vector.m_w);
 }
 Vector3 Matrix4::transformPoint(const Vector3& point) const
 {
@@ -700,6 +759,11 @@ void Matrix4::checkIndex(int row, int column)
 {
     assert(row >= 0 && row < Size);
     assert(column >= 0 && column < Size);
+}
+
+void Matrix4::checkVectorIndex(int indexValue)
+{
+    assert(indexValue >= 0 && indexValue < Size);
 }
 
 int Matrix4::index(int row, int column)

@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # MyBRepOpenGL
 # MyBRep 与 MyOpenGL 之间的显示适配层
 # ============================================================
@@ -17,6 +17,8 @@ set(MYBREP_OPENGL_SRC
     Display/BRepDisplayObject.h
     Display/BRepDisplayStyle.cpp
     Display/BRepDisplayStyle.h
+    Display/BRepSolidGeometryResource.cpp
+    Display/BRepSolidGeometryResource.h
 
     Viewer/BRepViewerWidget.cpp
     Viewer/BRepViewerWidget.h

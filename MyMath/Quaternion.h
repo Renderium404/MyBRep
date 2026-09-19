@@ -21,11 +21,8 @@ public:
 
     /// 四元数创建
 
-    // 创建零四元数。
-    static Quaternion zero();
-
-    // 创建单位四元数。
-    static Quaternion identity();
+    static Quaternion zero(){return Quaternion(0.0, 0.0, 0.0, 0.0);}
+    static Quaternion identity(){return Quaternion();}
 
     // 根据旋转轴和弧度角创建单位四元数，旋转轴或角度无效时返回零四元数。
     static Quaternion fromAxisAngle(const Vector3& axis, double angle, double epsilon = DefaultEpsilon);
@@ -33,34 +30,23 @@ public:
     // 根据右手正交旋转矩阵创建单位四元数，矩阵无效时返回零四元数。
     static Quaternion fromRotationMatrix(const Matrix3& matrix, double epsilon = DefaultEpsilon);
 
+    // 返回将from方向旋转到to方向的最短旋转，输入无效时返回零四元数。
+    static Quaternion rotationTo(const Vector3& from, const Vector3& to, double epsilon = DefaultEpsilon);
+
     /// 分量访问
 
-    // 返回实部分量。
-    double w() const;
+    double w() const{return m_w;}
+    double x() const{return m_x;}
+    double y() const{return m_y;}
+    double z() const{return m_z;}
+    Vector3 vector() const{return Vector3(m_x, m_y, m_z);}
 
-    // 返回X虚部分量。
-    double x() const;
-
-    // 返回Y虚部分量。
-    double y() const;
-
-    // 返回Z虚部分量。
-    double z() const;
-
-    // 设置实部分量。
-    void setW(double w);
-
-    // 设置X虚部分量。
-    void setX(double x);
-
-    // 设置Y虚部分量。
-    void setY(double y);
-
-    // 设置Z虚部分量。
-    void setZ(double z);
-
-    // 同时设置全部四个分量。
-    void set(double w, double x, double y, double z);
+    void setW(double w){m_w = w;}
+    void setX(double x){m_x = x;}
+    void setY(double y){m_y = y;}
+    void setZ(double z){m_z = z;}
+    void setVector(const Vector3& vector){m_x = vector.x(); m_y = vector.y(); m_z = vector.z();}
+    void set(double w, double x, double y, double z){m_w = w; m_x = x; m_y = y; m_z = z;}
 
     /// 状态判断
 
@@ -81,6 +67,11 @@ public:
 
     // 判断两个单位四元数是否表示相同旋转。
     bool isSameRotation(const Quaternion& other, double epsilon = DefaultEpsilon) const;
+
+    /// 比较运算
+
+    bool operator==(const Quaternion& other) const{return isEqualTo(other);}
+    bool operator!=(const Quaternion& other) const{return !isEqualTo(other);}
 
     /// 长度与归一化
 
@@ -114,6 +105,9 @@ public:
     Vector3 rotateVector(const Vector3& vector, double epsilon = DefaultEpsilon) const;
 
     /// 插值计算
+
+    // 返回两个单位四元数之间的归一化线性插值结果，输入无效时返回零四元数。
+    static Quaternion nlerp(const Quaternion& from, const Quaternion& to, double factor, double epsilon = DefaultEpsilon);
 
     // 返回两个单位四元数之间的球面线性插值结果，输入无效时返回零四元数。
     static Quaternion slerp(const Quaternion& from, const Quaternion& to, double factor, double epsilon = DefaultEpsilon);
