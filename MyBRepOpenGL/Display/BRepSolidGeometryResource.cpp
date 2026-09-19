@@ -1,4 +1,4 @@
-﻿#include "BRepSolidGeometryResource.h"
+#include "BRepSolidGeometryResource.h"
 
 namespace MyBRep
 {

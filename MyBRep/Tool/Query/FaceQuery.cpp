@@ -1,4 +1,4 @@
-#include "FaceQuery.h"
+﻿#include "FaceQuery.h"
 
 #include "MyBRep/Foundation/Diagnostic.h"
 
@@ -6,49 +6,53 @@ namespace MyBRep
 {
 
 FaceQuery::FaceQuery(const Topology_Face& topology)
-    : m_queryToWorld(MyMath::Matrix4::identity())
+    : m_localToWorld(MyMath::Matrix4::identity())
+    , m_queryToWorld(MyMath::Matrix4::identity())
     , m_queryToLocal(MyMath::Matrix4::identity())
     , m_localToQuery(MyMath::Matrix4::identity())
 {
-    MYBREP_ASSERT_MESSAGE(topology.isValid(),
-                          "FaceQuery requires a valid Topology_Face.");
+    initialize(topology, MyMath::Matrix4::identity(), MyMath::Matrix4::identity());
+}
 
-    initialize(Face(topology),
-               MyMath::Matrix4::identity());
+FaceQuery::FaceQuery(const Topology_Face& topology, const MyMath::Matrix4& localToWorld, const MyMath::Matrix4& queryToWorld)
+    : m_localToWorld(MyMath::Matrix4::identity())
+    , m_queryToWorld(MyMath::Matrix4::identity())
+    , m_queryToLocal(MyMath::Matrix4::identity())
+    , m_localToQuery(MyMath::Matrix4::identity())
+{
+    initialize(topology, localToWorld, queryToWorld);
 }
 
 FaceQuery::FaceQuery(const Face& face)
-    : m_queryToWorld(MyMath::Matrix4::identity())
+    : m_localToWorld(MyMath::Matrix4::identity())
+    , m_queryToWorld(MyMath::Matrix4::identity())
     , m_queryToLocal(MyMath::Matrix4::identity())
     , m_localToQuery(MyMath::Matrix4::identity())
 {
-    initialize(face, MyMath::Matrix4::identity());
+    MYBREP_ASSERT_MESSAGE(face.isValid(), "FaceQuery requires a valid Face.");
+    initialize(face.topology(), face.localToWorld(), MyMath::Matrix4::identity());
 }
 
-FaceQuery::FaceQuery(const Face& face,
-                     const MyMath::Matrix4& queryToWorld)
-    : m_queryToWorld(MyMath::Matrix4::identity())
+FaceQuery::FaceQuery(const Face& face, const MyMath::Matrix4& queryToWorld)
+    : m_localToWorld(MyMath::Matrix4::identity())
+    , m_queryToWorld(MyMath::Matrix4::identity())
     , m_queryToLocal(MyMath::Matrix4::identity())
     , m_localToQuery(MyMath::Matrix4::identity())
 {
-    initialize(face, queryToWorld);
+    MYBREP_ASSERT_MESSAGE(face.isValid(), "FaceQuery requires a valid Face.");
+    initialize(face.topology(), face.localToWorld(), queryToWorld);
 }
 
 /// 查询对象与空间数据
 
-const Face& FaceQuery::face() const
-{
-    return m_face;
-}
-
 const Topology_Face& FaceQuery::topology() const
 {
-    return m_face.topology();
+    return m_topology;
 }
 
 const Geometry_Surface& FaceQuery::geometry() const
 {
-    return m_face.geometry();
+    return m_topology.geometry();
 }
 
 const MyMath::Matrix4& FaceQuery::queryToLocal() const
@@ -65,37 +69,22 @@ const MyMath::Matrix4& FaceQuery::localToQuery() const
 
 MyMath::Vector3 FaceQuery::pointAt(double u, double v) const
 {
-    MYBREP_ASSERT_MESSAGE(geometry().isParameterInDomain(u, v),
-                          "FaceQuery parameters are outside the Geometry_Surface natural parameter domain.");
-
-    return m_localToQuery.transformPoint(
-        geometry().pointAt(u, v));
+    MYBREP_ASSERT_MESSAGE(geometry().isParameterInDomain(u, v), "FaceQuery parameters are outside the Geometry_Surface natural parameter domain.");
+    return m_localToQuery.transformPoint(geometry().pointAt(u, v));
 }
 
 MyMath::Vector3 FaceQuery::normalAt(double u, double v) const
 {
-    MYBREP_ASSERT_MESSAGE(geometry().isParameterInDomain(u, v),
-                          "FaceQuery normal parameters are outside the Geometry_Surface natural parameter domain.");
+    MYBREP_ASSERT_MESSAGE(geometry().isParameterInDomain(u, v), "FaceQuery normal parameters are outside the Geometry_Surface natural parameter domain.");
 
-    const MyMath::Vector3 queryUDerivative =
-        m_localToQuery.transformVector(
-            geometry().firstDerivativeUAt(u, v));
-    const MyMath::Vector3 queryVDerivative =
-        m_localToQuery.transformVector(
-            geometry().firstDerivativeVAt(u, v));
+    const MyMath::Vector3 queryUDerivative = m_localToQuery.transformVector(geometry().firstDerivativeUAt(u, v));
+    const MyMath::Vector3 queryVDerivative = m_localToQuery.transformVector(geometry().firstDerivativeVAt(u, v));
+    MyMath::Vector3 queryNormal = MyMath::Vector3::cross(queryUDerivative, queryVDerivative);
 
-    MyMath::Vector3 queryNormal =
-        MyMath::Vector3::cross(queryUDerivative,
-                               queryVDerivative);
-
-    MYBREP_ASSERT_MESSAGE(queryNormal.isVector(0.0),
-                          "FaceQuery normal requires a regular transformed surface parameter.");
+    MYBREP_ASSERT_MESSAGE(queryNormal.isVector(0.0), "FaceQuery normal requires a regular transformed surface parameter.");
 
     queryNormal = queryNormal.normalized(0.0);
-
-    return topology().isForward()
-               ? queryNormal
-               : queryNormal * -1.0;
+    return topology().isForward() ? queryNormal : queryNormal * -1.0;
 }
 
 /// 裁剪边界查询
@@ -107,56 +96,35 @@ std::size_t FaceQuery::wireCount() const
 
 std::size_t FaceQuery::edgeCount(std::size_t wireIndex) const
 {
-    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(),
-                          "FaceQuery Wire index is out of range.");
-
+    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(), "FaceQuery Wire index is out of range.");
     return topology().wire(wireIndex).edgeCount();
 }
 
-EdgeQuery FaceQuery::edgeQuery(std::size_t wireIndex,
-                               std::size_t edgeIndex) const
+EdgeQuery FaceQuery::edgeQuery(std::size_t wireIndex, std::size_t edgeIndex) const
 {
-    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(),
-                          "FaceQuery Wire index is out of range.");
-    MYBREP_ASSERT_MESSAGE(edgeIndex < edgeCount(wireIndex),
-                          "FaceQuery Edge index is out of range.");
-
-    return EdgeQuery(
-        m_face.wire(wireIndex).edge(edgeIndex),
-        m_queryToWorld);
+    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(), "FaceQuery Wire index is out of range.");
+    MYBREP_ASSERT_MESSAGE(edgeIndex < edgeCount(wireIndex), "FaceQuery Edge index is out of range.");
+    return EdgeQuery(topology().wire(wireIndex).edge(edgeIndex), m_localToWorld, m_queryToWorld);
 }
 
-MyMath::Vector2 FaceQuery::surfaceParameterAt(std::size_t wireIndex,
-                                              std::size_t edgeIndex,
-                                              double parameter) const
+MyMath::Vector2 FaceQuery::surfaceParameterAt(std::size_t wireIndex, std::size_t edgeIndex, double parameter) const
 {
-    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(),
-                          "FaceQuery Wire index is out of range.");
-    MYBREP_ASSERT_MESSAGE(edgeIndex < edgeCount(wireIndex),
-                          "FaceQuery Edge index is out of range.");
+    MYBREP_ASSERT_MESSAGE(wireIndex < wireCount(), "FaceQuery Wire index is out of range.");
+    MYBREP_ASSERT_MESSAGE(edgeIndex < edgeCount(wireIndex), "FaceQuery Edge index is out of range.");
 
-    const Topology_Edge edge =
-        topology().wire(wireIndex).edge(edgeIndex);
-
-    return edge.surfaceParameterAt(geometry(),
-                                   parameter);
+    const Topology_Edge edge = topology().wire(wireIndex).edge(edgeIndex);
+    return edge.surfaceParameterAt(geometry(), parameter);
 }
 
 Bounds3 FaceQuery::boundaryBounds() const
 {
     Bounds3 result;
 
-    for (std::size_t wireIndex = 0;
-         wireIndex < wireCount();
-         ++wireIndex)
+    for (std::size_t wireIndex = 0; wireIndex < wireCount(); ++wireIndex)
     {
-        for (std::size_t edgeIndex = 0;
-             edgeIndex < edgeCount(wireIndex);
-             ++edgeIndex)
+        for (std::size_t edgeIndex = 0; edgeIndex < edgeCount(wireIndex); ++edgeIndex)
         {
-            result.include(
-                edgeQuery(wireIndex,
-                          edgeIndex).queryBounds());
+            result.include(edgeQuery(wireIndex, edgeIndex).queryBounds());
         }
     }
 
@@ -165,27 +133,25 @@ Bounds3 FaceQuery::boundaryBounds() const
 
 /// 初始化
 
-void FaceQuery::initialize(const Face& face,
-                           const MyMath::Matrix4& queryToWorld)
+void FaceQuery::initialize(const Topology_Face& topology, const MyMath::Matrix4& localToWorld, const MyMath::Matrix4& queryToWorld)
 {
-    MYBREP_ASSERT_MESSAGE(face.isValid(),
-                          "FaceQuery requires a valid Face.");
-    MYBREP_ASSERT_MESSAGE(queryToWorld.isAffine(),
-                          "FaceQuery query-to-world transform must be affine.");
+    MYBREP_ASSERT_MESSAGE(topology.isValid(), "FaceQuery requires a valid Topology_Face.");
+    MYBREP_ASSERT_MESSAGE(localToWorld.isAffine(), "FaceQuery local-to-world transform must be affine.");
+    MYBREP_ASSERT_MESSAGE(queryToWorld.isAffine(), "FaceQuery query-to-world transform must be affine.");
 
+    MyMath::Matrix4 worldToLocal;
     MyMath::Matrix4 worldToQuery;
-    const bool invertible =
-        queryToWorld.inverted(worldToQuery);
+    const bool localInvertible = localToWorld.inverted(worldToLocal);
+    const bool queryInvertible = queryToWorld.inverted(worldToQuery);
 
-    MYBREP_ASSERT_MESSAGE(invertible,
-                          "FaceQuery query-to-world transform must be invertible.");
+    MYBREP_ASSERT_MESSAGE(localInvertible, "FaceQuery local-to-world transform must be invertible.");
+    MYBREP_ASSERT_MESSAGE(queryInvertible, "FaceQuery query-to-world transform must be invertible.");
 
-    m_face = face;
+    m_topology = topology;
+    m_localToWorld = localToWorld;
     m_queryToWorld = queryToWorld;
-    m_queryToLocal =
-        face.worldToLocal() * queryToWorld;
-    m_localToQuery =
-        worldToQuery * face.localToWorld();
+    m_queryToLocal = worldToLocal * queryToWorld;
+    m_localToQuery = worldToQuery * localToWorld;
 }
 
 }

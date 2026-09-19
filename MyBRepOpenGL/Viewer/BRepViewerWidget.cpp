@@ -667,8 +667,8 @@ BRepDisplayId BRepViewerWidget::attachSharedSolidDisplay(
     item->transform().setRotation(rotation);
     item->transform().setScale(scale);
 
-    RenderPart* wireframePart = item->createPart();
-
+    RenderPart* wireframePart = itemManager().createPart();
+    item->addPart(wireframePart);
     if (wireframePart == 0)
     {
         itemManager().remove(item->id());
@@ -681,8 +681,8 @@ BRepDisplayId BRepViewerWidget::attachSharedSolidDisplay(
     wireframePart->setMaterial(wireframeMaterial);
     wireframePart->setLocalBounds(wireframeBounds);
 
-    RenderPart* surfacePart = item->createPart();
-
+    RenderPart* surfacePart = itemManager().createPart();
+    item->addPart(surfacePart);
     if (surfacePart == 0)
     {
         itemManager().remove(item->id());
@@ -867,8 +867,8 @@ BRepDisplayId BRepViewerWidget::attachWireframe(BufferGeometry* geometry, const 
         return InvalidBRepDisplayId;
     }
 
-    RenderPart* part = item->createPart();
-
+    RenderPart* part = itemManager().createPart();
+    item->addPart(part);
     if (part == 0)
     {
         itemManager().remove(item->id());
@@ -989,8 +989,8 @@ BRepDisplayId BRepViewerWidget::attachSurfaceDisplay(BufferGeometry* surfaceGeom
     // 边界Part必须先于Surface Part创建。
     // MyOpenGL普通Geometry使用GL_LESS；边界先写入共面深度后，后绘Surface在边界像素处因深度相等而不会覆盖边线，
     // 同时被其他更近Geometry遮挡的边界仍然正常通过Depth Test隐藏。
-    RenderPart* wireframePart = item->createPart();
-
+    RenderPart* wireframePart = itemManager().createPart();
+    item->addPart(wireframePart);
     if (wireframePart == 0)
     {
         itemManager().remove(item->id());
@@ -1005,8 +1005,8 @@ BRepDisplayId BRepViewerWidget::attachSurfaceDisplay(BufferGeometry* surfaceGeom
     wireframePart->setMaterial(wireframeMaterial);
     wireframePart->setLocalBounds(wireframeBounds);
 
-    RenderPart* surfacePart = item->createPart();
-
+    RenderPart* surfacePart = itemManager().createPart();
+    item->addPart(surfacePart);
     if (surfacePart == 0)
     {
         itemManager().remove(item->id());

@@ -13,12 +13,16 @@ set(MYBREP_OPENGL_SRC
     Builder/BRepWireframeBuilder.cpp
     Builder/BRepWireframeBuilder.h
 
+    Display/BRepDisplayManager.cpp
+    Display/BRepDisplayManager.h
     Display/BRepDisplayObject.cpp
     Display/BRepDisplayObject.h
     Display/BRepDisplayStyle.cpp
     Display/BRepDisplayStyle.h
     Display/BRepSolidGeometryResource.cpp
     Display/BRepSolidGeometryResource.h
+
+
 
     Viewer/BRepViewerWidget.cpp
     Viewer/BRepViewerWidget.h

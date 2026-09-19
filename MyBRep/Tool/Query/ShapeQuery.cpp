@@ -1,4 +1,4 @@
-#include "ShapeQuery.h"
+﻿#include "ShapeQuery.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,41 +6,15 @@
 
 #include "MyBRep/Foundation/Diagnostic.h"
 
-namespace
-{
-
-const unsigned int XOctantMask = 1; // 八分体编号第0位控制X方向。
-const unsigned int YOctantMask = 2; // 八分体编号第1位控制Y方向。
-const unsigned int ZOctantMask = 4; // 八分体编号第2位控制Z方向。
-const double SignedDistanceMetricToleranceScale = 256.0; // 判断统一缩放和正交关系时覆盖矩阵计算舍入误差的固定倍数。
-
-// 判断半尺寸是否为有限非负数据。
-bool isValidExtent(const MyMath::Vector3& extent)
-{
-    return extent.isFinite() &&
-           extent.x() >= 0.0 &&
-           extent.y() >= 0.0 &&
-           extent.z() >= 0.0;
-}
-
-// 返回指定八分体的查询空间中心。
-MyMath::Vector3 octantCenter(const MyMath::Vector3& parentCenter,
-                             const MyMath::Vector3& childExtent,
-                             unsigned int octantIndex)
-{
-    return MyMath::Vector3(
-        parentCenter.x() +
-            ((octantIndex & XOctantMask) != 0 ? childExtent.x() : -childExtent.x()),
-        parentCenter.y() +
-            ((octantIndex & YOctantMask) != 0 ? childExtent.y() : -childExtent.y()),
-        parentCenter.z() +
-            ((octantIndex & ZOctantMask) != 0 ? childExtent.z() : -childExtent.z()));
-}
-
-}
-
 namespace MyBRep
 {
+
+const unsigned int ShapeQuery::XOctantMask = 1;
+const unsigned int ShapeQuery::YOctantMask = 2;
+const unsigned int ShapeQuery::ZOctantMask = 4;
+const double ShapeQuery::SignedDistanceMetricToleranceScale = 256.0;
+
+/// 构造
 
 ShapeQuery::ShapeQuery(const Topology_Shape& topology)
     : m_queryToLocal(MyMath::Matrix4::identity())
@@ -52,10 +26,20 @@ ShapeQuery::ShapeQuery(const Topology_Shape& topology)
     , m_signedDistanceMetricValid(false)
     , m_identityQuery(true)
 {
-    MYBREP_ASSERT_MESSAGE(topology.isValid(),
-                          "ShapeQuery requires a valid Topology_Shape.");
+    initialize(topology, MyMath::Matrix4::identity(), MyMath::Matrix4::identity());
+}
 
-    initialize(Shape(topology), MyMath::Matrix4::identity());
+ShapeQuery::ShapeQuery(const Topology_Shape& topology, const MyMath::Matrix4& localToWorld, const MyMath::Matrix4& queryToWorld)
+    : m_queryToLocal(MyMath::Matrix4::identity())
+    , m_localToQuery(MyMath::Matrix4::identity())
+    , m_absoluteQueryToLocalRowX(MyMath::Vector3::unitX())
+    , m_absoluteQueryToLocalRowY(MyMath::Vector3::unitY())
+    , m_absoluteQueryToLocalRowZ(MyMath::Vector3::unitZ())
+    , m_localDistancePerQueryUnit(1.0)
+    , m_signedDistanceMetricValid(false)
+    , m_identityQuery(false)
+{
+    initialize(topology, localToWorld, queryToWorld);
 }
 
 ShapeQuery::ShapeQuery(const Shape& shape)
@@ -68,11 +52,11 @@ ShapeQuery::ShapeQuery(const Shape& shape)
     , m_signedDistanceMetricValid(false)
     , m_identityQuery(false)
 {
-    initialize(shape, MyMath::Matrix4::identity());
+    MYBREP_ASSERT_MESSAGE(shape.isValid(), "ShapeQuery requires a valid Shape.");
+    initialize(shape.topology(), shape.localToWorld(), MyMath::Matrix4::identity());
 }
 
-ShapeQuery::ShapeQuery(const Shape& shape,
-                       const MyMath::Matrix4& queryToWorld)
+ShapeQuery::ShapeQuery(const Shape& shape, const MyMath::Matrix4& queryToWorld)
     : m_queryToLocal(MyMath::Matrix4::identity())
     , m_localToQuery(MyMath::Matrix4::identity())
     , m_absoluteQueryToLocalRowX(MyMath::Vector3::unitX())
@@ -82,7 +66,8 @@ ShapeQuery::ShapeQuery(const Shape& shape,
     , m_signedDistanceMetricValid(false)
     , m_identityQuery(false)
 {
-    initialize(shape, queryToWorld);
+    MYBREP_ASSERT_MESSAGE(shape.isValid(), "ShapeQuery requires a valid Shape.");
+    initialize(shape.topology(), shape.localToWorld(), queryToWorld);
 }
 
 ShapeQuery::~ShapeQuery()
@@ -104,19 +89,14 @@ bool ShapeQuery::supportsSignedDistance() const
 
 /// 查询对象与空间数据
 
-const Shape& ShapeQuery::shape() const
-{
-    return m_shape;
-}
-
 const Topology_Shape& ShapeQuery::topology() const
 {
-    return m_shape.topology();
+    return m_topology;
 }
 
 const Geometry_Shape& ShapeQuery::geometry() const
 {
-    return m_shape.geometry();
+    return m_topology.geometry();
 }
 
 const MyMath::Matrix4& ShapeQuery::queryToLocal() const
@@ -148,10 +128,10 @@ bool ShapeQuery::containsPoint(const MyMath::Vector3& point) const
 
     if (m_identityQuery)
     {
-        return m_shape.containsLocalPoint(point);
+        return geometry().containsLocalPoint(point);
     }
 
-    return m_shape.containsLocalPoint(
+    return geometry().containsLocalPoint(
         m_queryToLocal.transformPoint(point));
 }
 
@@ -185,11 +165,11 @@ ShapeRelation ShapeQuery::classifyBounds(const Bounds3& bounds) const
 
     if (m_identityQuery)
     {
-        return m_shape.classifyLocalBounds(bounds);
+        return geometry().classifyLocalBounds(bounds);
     }
 
     // 标准路径显式变换查询AABB八个角点并建立局部保守AABB，作为快速路径的独立正确性基准。
-    return m_shape.classifyLocalBounds(
+    return geometry().classifyLocalBounds(
         bounds.transformed(m_queryToLocal));
 }
 
@@ -235,7 +215,7 @@ ShapeRelation ShapeQuery::classifyBoundsFastImpl(
 {
     if (m_identityQuery)
     {
-        return m_shape.classifyLocalBoundsFast(center, extent);
+        return geometry().classifyLocalBoundsFast(center, extent);
     }
 
     MyMath::Vector3 localCenter;
@@ -246,7 +226,7 @@ ShapeRelation ShapeQuery::classifyBoundsFastImpl(
                                localCenter,
                                localExtent);
 
-    return m_shape.classifyLocalBoundsFast(localCenter,
+    return geometry().classifyLocalBoundsFast(localCenter,
                                            localExtent);
 }
 
@@ -268,7 +248,7 @@ void ShapeQuery::classifyOctantBoundsFastImpl(
 
             results[octantIndex] =
                 intersectsQueryBounds(childCenter, childExtent)
-                    ? m_shape.classifyLocalBoundsFast(childCenter,
+                    ? geometry().classifyLocalBoundsFast(childCenter,
                                                       childExtent)
                     : ShapeRelation::Outside;
         }
@@ -336,7 +316,7 @@ void ShapeQuery::classifyOctantBoundsFastImpl(
                 signZ * localOffsetZ.z());
 
         results[octantIndex] =
-            m_shape.classifyLocalBoundsFast(localCenter,
+            geometry().classifyLocalBoundsFast(localCenter,
                                             localExtent);
     }
 }
@@ -371,41 +351,50 @@ bool ShapeQuery::intersectsQueryBounds(
 
 /// 初始化
 
-void ShapeQuery::initialize(const Shape& shape,
-                            const MyMath::Matrix4& queryToWorld)
+/// 初始化
+
+void ShapeQuery::initialize(const Topology_Shape& topology, const MyMath::Matrix4& localToWorld, const MyMath::Matrix4& queryToWorld)
 {
-    MYBREP_ASSERT_MESSAGE(shape.isValid(),
-                          "ShapeQuery requires a valid Shape.");
-    MYBREP_ASSERT_MESSAGE(queryToWorld.isAffine(),
-                          "ShapeQuery query-to-world transform must be affine.");
+    MYBREP_ASSERT_MESSAGE(topology.isValid(), "ShapeQuery requires a valid Topology_Shape.");
+    MYBREP_ASSERT_MESSAGE(localToWorld.isAffine(), "ShapeQuery local-to-world transform must be affine.");
+    MYBREP_ASSERT_MESSAGE(queryToWorld.isAffine(), "ShapeQuery query-to-world transform must be affine.");
 
+    MyMath::Matrix4 worldToLocal;
     MyMath::Matrix4 worldToQuery;
-    const bool invertible =
-        queryToWorld.inverted(worldToQuery);
+    const bool localInvertible = localToWorld.inverted(worldToLocal);
+    const bool queryInvertible = queryToWorld.inverted(worldToQuery);
 
-    MYBREP_ASSERT_MESSAGE(invertible,
-                          "ShapeQuery query-to-world transform must be invertible.");
+    MYBREP_ASSERT_MESSAGE(localInvertible, "ShapeQuery local-to-world transform must be invertible.");
+    MYBREP_ASSERT_MESSAGE(queryInvertible, "ShapeQuery query-to-world transform must be invertible.");
 
-    m_shape = shape;
-    m_queryToLocal =
-        shape.worldToLocal() * queryToWorld;
-    m_localToQuery =
-        worldToQuery * shape.localToWorld();
-
-    m_identityQuery =
-        m_queryToLocal.isIdentity(0.0);
+    m_topology = topology;
+    m_queryToLocal = worldToLocal * queryToWorld;
+    m_localToQuery = worldToQuery * localToWorld;
+    m_identityQuery = m_queryToLocal.isIdentity(0.0);
 
     updateAbsoluteQueryToLocalRows();
     updateSignedDistanceMetric();
 
-    // 查询器构造不属于递归热点，使用标准八角点变换建立查询空间保守AABB。
-    m_queryBounds =
-        shape.localBounds().transformed(m_localToQuery);
+    m_queryBounds = geometry().localBounds().transformed(m_localToQuery);
 
-    MYBREP_ASSERT_MESSAGE(m_queryBounds.isValid(),
-                          "ShapeQuery query bounds must be valid.");
-    MYBREP_ASSERT_MESSAGE(m_queryBounds.hasVolume(),
-                          "ShapeQuery requires Geometry_Shape query bounds with positive volume.");
+    MYBREP_ASSERT_MESSAGE(m_queryBounds.isValid(), "ShapeQuery query bounds must be valid.");
+    MYBREP_ASSERT_MESSAGE(m_queryBounds.hasVolume(), "ShapeQuery requires Geometry_Shape query bounds with positive volume.");
+}
+
+/// 内部辅助
+
+bool ShapeQuery::isValidExtent(const MyMath::Vector3& extent)
+{
+    return extent.isFinite() && extent.x() >= 0.0 && extent.y() >= 0.0 && extent.z() >= 0.0;
+}
+
+MyMath::Vector3 ShapeQuery::octantCenter(const MyMath::Vector3& parentCenter, const MyMath::Vector3& childExtent,
+                                        unsigned int octantIndex)
+{
+    return MyMath::Vector3(
+        parentCenter.x() + ((octantIndex & XOctantMask) != 0 ? childExtent.x() : -childExtent.x()),
+        parentCenter.y() + ((octantIndex & YOctantMask) != 0 ? childExtent.y() : -childExtent.y()),
+        parentCenter.z() + ((octantIndex & ZOctantMask) != 0 ? childExtent.z() : -childExtent.z()));
 }
 
 void ShapeQuery::updateAbsoluteQueryToLocalRows()
@@ -484,5 +473,6 @@ void ShapeQuery::updateSignedDistanceMetric()
                   3.0)
             : 1.0;
 }
+
 
 }

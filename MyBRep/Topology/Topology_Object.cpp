@@ -1,4 +1,4 @@
-#include "Topology_Object.h"
+﻿#include "Topology_Object.h"
 
 #include "MyBRep/Foundation/Diagnostic.h"
 
@@ -10,13 +10,11 @@ Topology_Object::Topology_Object()
 {
 }
 
-Topology_Object::Topology_Object(const Foundation::RefPtr<Topology_TObject>& object,
-                                 Topology_Orientation orientation)
+Topology_Object::Topology_Object(const Foundation::RefPtr<Topology_TObject>& object, Topology_Orientation orientation)
     : m_object(object)
     , m_orientation(orientation)
 {
-    MYBREP_ASSERT_MESSAGE(object,
-                          "Topology_Object requires a non-null Topology_TObject.");
+    MYBREP_ASSERT_MESSAGE(object, "Topology_Object requires a non-null Topology_TObject.");
 }
 
 /// 状态判断
@@ -38,6 +36,11 @@ Topology_Object::operator bool() const
 
 /// 拓扑身份
 
+TopologyId Topology_Object::id() const
+{
+    return m_object ? m_object->id() : InvalidTopologyId;
+}
+
 bool Topology_Object::isSame(const Topology_Object& other) const
 {
     return m_object && m_object.get() == other.m_object.get();
@@ -47,9 +50,7 @@ bool Topology_Object::isSame(const Topology_Object& other) const
 
 Topology_Orientation Topology_Object::orientation() const
 {
-    MYBREP_ASSERT_MESSAGE(isValid(),
-                          "Cannot access the orientation of an invalid Topology_Object.");
-
+    MYBREP_ASSERT_MESSAGE(isValid(), "Cannot access the orientation of an invalid Topology_Object.");
     return m_orientation;
 }
 
@@ -72,9 +73,7 @@ const Foundation::RefPtr<Topology_TObject>& Topology_Object::tObject() const
 
 Topology_Orientation Topology_Object::reversedOrientation() const
 {
-    MYBREP_ASSERT_MESSAGE(isValid(),
-                          "Cannot reverse the orientation of an invalid Topology_Object.");
-
+    MYBREP_ASSERT_MESSAGE(isValid(), "Cannot reverse an invalid Topology_Object.");
     return oppositeOrientation(m_orientation);
 }
 

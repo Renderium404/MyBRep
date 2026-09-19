@@ -1,4 +1,4 @@
-#ifndef MYBREP_INSTANCE_SHAPE_H
+﻿#ifndef MYBREP_INSTANCE_SHAPE_H
 #define MYBREP_INSTANCE_SHAPE_H
 
 #include "MyMath/Matrix4.h"
@@ -11,10 +11,9 @@
 namespace MyBRep
 {
 
-// 表示Topology_Shape连续体内核在世界空间中的一次不可变放置，并缓存对应的世界轴对齐包围盒。
-//
-// Shape与Solid明确区分：Shape直接包装Geometry_Shape连续体，Solid则实例化完整B-Rep Topology_Solid。
-class Shape : public Instance_Object
+// Topology_Shape的专用空间实例。
+// Shape保留连续体几何查询和世界包围盒缓存，因此不是简单Instance_Object别名。
+class Shape : public Instance_Object<Topology_Shape>
 {
 public:
     // 构造不包含局部Topology_Shape的空实例。
@@ -28,27 +27,27 @@ public:
 
     /// 状态判断
 
-    // 判断当前Shape是否包含有效局部Topology_Shape和有效世界包围盒。
+    // 判断当前Shape是否包含有效Topology_Shape和有效世界包围盒。
     bool isValid() const;
-    // 判断当前Shape是否未包含局部Topology_Shape。
-    bool isNull() const;
     // 判断当前Shape是否包含完整有效数据。
     explicit operator bool() const;
-    // 判断当前Shape是否与另一个Shape引用同一个Topology_TShape身份。
-    bool sharesTopologyWith(const Shape& other) const;
+
     // 判断当前Shape是否与另一个Shape引用同一个Geometry_Shape资源。
     bool sharesGeometryWith(const Shape& other) const;
 
-    /// 局部拓扑与几何内核
+    /// 几何内核
 
-    // 返回当前Shape持有的局部Topology_Shape。
-    const Topology_Shape& topology() const;
     // 返回当前Shape直接引用的不可变连续实体几何内核。
     const Geometry_Shape& geometry() const;
     // 返回当前Shape直接引用的不可变连续实体几何普通指针，空实例返回空指针。
     const Geometry_Shape* geometryPointer() const;
     // 返回当前Shape的标准连续体几何类型。
     ShapeKind kind() const;
+
+    /// 空间放置
+
+    // 修改Shape空间放置并同步更新世界包围盒；输入无效时保持原状态并返回false。
+    bool setLocalToWorld(const MyMath::Matrix4& localToWorld);
 
     /// 空间范围
 
@@ -64,8 +63,7 @@ public:
     // 返回指定局部轴对齐包围盒与Shape之间的保守空间关系。
     ShapeRelation classifyLocalBounds(const Bounds3& bounds) const;
     // 使用已经计算好的局部包围盒中心和半尺寸执行保守分类。
-    ShapeRelation classifyLocalBoundsFast(const MyMath::Vector3& center,
-                                          const MyMath::Vector3& extent) const;
+    ShapeRelation classifyLocalBoundsFast(const MyMath::Vector3& center, const MyMath::Vector3& extent) const;
 
     /// 世界空间查询
 
@@ -84,7 +82,6 @@ private:
     void initialize();
 
 private:
-    Topology_Shape m_topology; // 当前Shape实例持有的局部Topology_Shape。
     Bounds3 m_worldBounds; // 当前Shape在世界坐标系中的有限轴对齐包围盒。
 };
 

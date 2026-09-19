@@ -1,43 +1,21 @@
 #include "Instance_Object.h"
 
-#include "MyBRep/Foundation/Diagnostic.h"
+#include <atomic>
 
 namespace MyBRep
 {
-
-Instance_Object::Instance_Object()
-    : m_localToWorld(MyMath::Matrix4::identity())
-    , m_worldToLocal(MyMath::Matrix4::identity())
+namespace InstanceObjectDetail
 {
+
+static std::atomic<InstanceId> g_nextInstanceId(1);
+
+// 分配一个进程内唯一且非零的InstanceId。
+InstanceId allocateInstanceId()
+{
+    const InstanceId id = g_nextInstanceId.fetch_add(1, std::memory_order_relaxed);
+    MYBREP_ASSERT_MESSAGE(id != InvalidInstanceId, "InstanceId range exhausted.");
+    return id;
 }
 
-Instance_Object::Instance_Object(const MyMath::Matrix4& localToWorld)
-    : m_localToWorld(localToWorld)
-    , m_worldToLocal(MyMath::Matrix4::identity())
-{
-    MYBREP_ASSERT_MESSAGE(localToWorld.isAffine(),
-                          "Instance_Object transform must be affine.");
-
-    const bool invertible = localToWorld.inverted(m_worldToLocal);
-
-    MYBREP_ASSERT_MESSAGE(invertible,
-                          "Instance_Object transform must be invertible.");
 }
-
-Instance_Object::~Instance_Object()
-{
-}
-
-/// 空间放置
-
-const MyMath::Matrix4& Instance_Object::localToWorld() const
-{
-    return m_localToWorld;
-}
-
-const MyMath::Matrix4& Instance_Object::worldToLocal() const
-{
-    return m_worldToLocal;
-}
-
 }

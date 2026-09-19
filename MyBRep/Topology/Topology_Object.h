@@ -1,4 +1,4 @@
-#ifndef MYBREP_TOPOLOGY_TOPOLOGY_OBJECT_H
+﻿#ifndef MYBREP_TOPOLOGY_TOPOLOGY_OBJECT_H
 #define MYBREP_TOPOLOGY_TOPOLOGY_OBJECT_H
 
 #include "MyBRep/Foundation/RefPtr.h"
@@ -31,6 +31,8 @@ public:
 
     /// 拓扑身份
 
+    // 返回当前句柄引用的共享Topology_TObject身份；空句柄返回InvalidTopologyId。
+    TopologyId id() const;
     // 判断两个非空句柄是否引用同一个Topology_TObject，使用方向不参与拓扑身份判断。
     bool isSame(const Topology_Object& other) const;
 
@@ -45,8 +47,7 @@ public:
 
 protected:
     // 使用共享拓扑实体和明确方向构造轻量拓扑句柄。
-    Topology_Object(const Foundation::RefPtr<Topology_TObject>& object,
-                    Topology_Orientation orientation);
+    Topology_Object(const Foundation::RefPtr<Topology_TObject>& object, Topology_Orientation orientation);
 
     /// 派生类支持
 
