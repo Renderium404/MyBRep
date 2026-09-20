@@ -19,6 +19,7 @@ class Topology_Shell : public Topology_Object
 public:
     // 构造不引用任何共享拓扑Shell实体的空句柄。
     Topology_Shell();
+    explicit Topology_Shell(const Topology_Object& object);
     // 使用至少一个通过共享Topology_TEdge身份连通的有向Face创建新的Forward Shell身份。
     explicit Topology_Shell(const std::vector<Topology_Face>& faces);
     Topology_Shell(const Topology_Shell&) = default;

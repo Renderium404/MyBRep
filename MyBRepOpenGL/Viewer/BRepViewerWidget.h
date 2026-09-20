@@ -14,7 +14,7 @@
 #include "MyBRep/Instance/Shell.h"
 #include "MyBRep/Instance/Solid.h"
 #include "MyBRep/Instance/Wire.h"
-#include "MyBRep/Instance/Instance_Object.h"
+#include "MyBRep/Instance/Instance.h"
 #include "MyBRep/Tool/Collector/TopologyCollector.h"
 
 #include "MyBRepOpenGL/Builder/BRepEdgeBuilder.h"
@@ -92,13 +92,21 @@ public:
 
     bool removeDisplay(BRepDisplayId id);
     bool clearBRepDisplays();
+
     /// 刷新
 
     // 刷新指定Instance当前Display的颜色、线宽和光照等显示属性。
-    bool refreshDisplay(const Instance_Object& instance, const BRepDisplayStyle& style);
+    // 不修改Topology、Geometry Resource或空间放置。
+    bool refreshDisplay(const Instance& instance, const BRepDisplayStyle& style);
 
-    // 将指定Instance当前空间放置同步到对应RenderItem，不重建Geometry或RenderPart。
-    bool refreshPlacement(const Instance_Object& instance);
+    // 将指定Instance当前空间放置同步到对应RenderItem。
+    // 不修改Topology、Geometry Resource、RenderPart或Material。
+    bool refreshPlacement(const Instance& instance);
+
+    // 将指定Instance当前Topology同步到对应RenderItem。
+    // 保持Instance、RenderItem、Material和空间放置不变，重新组织Face/Edge RenderPart。
+    bool refreshTopology(const Instance& instance);
+
 private:
     static int positionValueOffset(const BufferGeometry& geometry);
     static AxisAlignedBoundingBox geometryBounds(const BufferGeometry& geometry);
@@ -128,7 +136,13 @@ private:
     bool attachFaceParts(RenderItem& item, const std::vector<Topology_Face>& faces,
                          const Material* material, const QString& name);
     bool attachEdgeParts(RenderItem& item, const std::vector<Topology_Edge>& edges,
-                         const Material* material, const QString& name);
+                        const Material* material, float lineWidth, const QString& name);
+
+    // 返回Item当前引用的全部RenderPart身份。
+    static std::vector<RenderPartId> itemPartIds(const RenderItem& item);
+
+    // 删除Item当前引用的指定RenderPart；Part由ItemManager拥有。
+    bool removeItemParts(RenderItem& item, const std::vector<RenderPartId>& partIds);
 
     // 删除Item当前引用的全部RenderPart；Part由ItemManager拥有。
     bool removeItemParts(RenderItem& item);
@@ -156,6 +170,10 @@ private:
 
     // 按Instance身份刷新对应RenderItem的空间放置。
     bool refreshPlacement(InstanceId instanceId, const MyMath::Matrix4& localToWorld);
+
+    // 按内部Display身份刷新Topology组成。
+    bool refreshTopology(BRepDisplayId displayId, const Tool::TopologyCollection& topology);
+
 private:
     typedef std::map<BRepDisplayId, BRepDisplayObject> DisplayMap;
 

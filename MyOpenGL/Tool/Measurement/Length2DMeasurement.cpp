@@ -221,7 +221,7 @@ void Length2DMeasurement::drawOverlay(OpenGLViewerWidget* viewer, QPainter& pain
     /// P2
     /// Length
     ///
-    /// 已经全部提交到 measurementItemManager。
+    /// 已经全部提交到 toolItemManager。
     ///
     /// QPainter 这里只保留当前鼠标位置提示。
 
@@ -438,7 +438,7 @@ bool Length2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     const QVector2D middleScene = (startScene + endScene) * 0.5f;
     const QVector2D lineVector = endScene - startScene;
 
-    RenderItem* item = viewer->measurementItemManager().createItem("MeasurementLength2DResult");
+    RenderItem* item = viewer->toolItemManager().createItem("MeasurementLength2DResult");
 
     if (item == 0)
         return false;
@@ -454,23 +454,23 @@ bool Length2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
 
     if (geometry == 0)
     {
-        viewer->measurementItemManager().remove(item->id());
+        viewer->toolItemManager().remove(item->id());
         return false;
     }
 
     if (viewer->resourceManager().adopt(geometry) == InvalidResourceId)
     {
         delete geometry;
-        viewer->measurementItemManager().remove(item->id());
+        viewer->toolItemManager().remove(item->id());
         return false;
     }
 
-    RenderPart* linePart = viewer->measurementItemManager().createPart();
+    RenderPart* linePart = viewer->toolItemManager().createPart();
     item->addPart(linePart);
     if (linePart == 0)
     {
         viewer->resourceManager().remove(geometry->id());
-        viewer->measurementItemManager().remove(item->id());
+        viewer->toolItemManager().remove(item->id());
         return false;
     }
 

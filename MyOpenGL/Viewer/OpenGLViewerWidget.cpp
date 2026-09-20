@@ -59,7 +59,6 @@ private:
 OpenGLViewerWidget::OpenGLViewerWidget(QWidget* parent)
     : QOpenGLWidget(parent)
     , m_viewportOverlay(0)
-    , m_measurementTool(0)
     , m_systemVertexColorMaterial(0)
     , m_navigationAnchorGeometry("NavigationAnchor", BufferUsage::Static, RenderType::Lines)
     , m_navigationAnchorVisible(false)
@@ -172,14 +171,40 @@ const ItemManager& OpenGLViewerWidget::itemManager() const
 {
     return m_itemManager;
 }
-ItemManager& OpenGLViewerWidget::measurementItemManager()
+ItemManager& OpenGLViewerWidget::toolItemManager()
 {
-    return m_measurementItemManager;
+    return m_toolItemManager;
 }
 
-const ItemManager& OpenGLViewerWidget::measurementItemManager() const
+const ItemManager& OpenGLViewerWidget::toolItemManager() const
 {
-    return m_measurementItemManager;
+    return m_toolItemManager;
+}
+
+ToolManager& OpenGLViewerWidget::toolManager()
+{
+    return m_toolManager;
+}
+
+const ToolManager& OpenGLViewerWidget::toolManager() const
+{
+    return m_toolManager;
+}
+
+void OpenGLViewerWidget::setActiveTool(ViewerTool* tool)
+{
+    m_toolManager.setActiveTool(this, tool);
+    update();
+}
+
+ViewerTool* OpenGLViewerWidget::activeTool()
+{
+    return m_toolManager.activeTool();
+}
+
+const ViewerTool* OpenGLViewerWidget::activeTool() const
+{
+    return m_toolManager.activeTool();
 }
 /// Viewer 系统显示
 
@@ -333,10 +358,10 @@ void OpenGLViewerWidget::drawSceneFront(Renderer& renderer, const RenderContext&
     /// 系统对象不会依赖当前场景 Light Selection。
 
     const std::vector<const Light*> noLights;
-    /// 测量辅助对象。
+    /// 工具辅助对象。
 
-    if (!drawItems(renderer, m_measurementItemManager, context, noLights))
-        qWarning() << "OpenGLViewerWidget drawSceneFront failed: Measurement Item drawing failed.";
+    if (!drawItems(renderer, m_toolItemManager, context, noLights))
+        qWarning() << "OpenGLViewerWidget drawSceneFront failed: Tool Item drawing failed.";
     /// 世界坐标系
     ///
     /// CoordinateSystem 使用世界原点确定屏幕位置，
@@ -655,10 +680,21 @@ bool OpenGLViewerWidget::drawItems(Renderer& renderer,
                                    const RenderContext& context,
                                    const std::vector<const Light*>& lights)
 {
-    const int itemCount = static_cast<int>(itemManager.count());
+    struct PartEntry
+    {
+        PartEntry() : item(0), part(0){}
+        const RenderItem* item;
+        const RenderPart* part;
+    };
 
-    /// 第一阶段：绘制全部 Item 的 World Space RenderPart。
-    /// 必须先把所有实体 Part 画完，避免后续 Item Geometry 覆盖 Screen Label。
+    const int itemCount = static_cast<int>(itemManager.count());
+    std::vector<PartEntry> opaqueParts;
+    std::vector<PartEntry> transparentParts;
+
+    /// 第一阶段：收集普通 Part。
+    ///
+    /// Opaque 保持原 Item / Part 顺序。
+    /// Transparent 不再做 CPU 前后排序，而是统一进入 Weighted Blended OIT。
     for (int itemIndex = 0; itemIndex < itemCount; ++itemIndex)
     {
         const RenderItem* item = itemManager.itemAt(itemIndex);
@@ -670,26 +706,117 @@ bool OpenGLViewerWidget::drawItems(Renderer& renderer,
             return false;
         }
 
-        if (!item->drawParts(renderer, context, lights))
+        if (!item->isVisible()) continue;
+
+        for (int partIndex = 0; partIndex < item->partCount(); ++partIndex)
         {
-            qWarning() << "OpenGLViewerWidget drawItems failed while drawing Item Parts:"
-                       << item->name();
+            const RenderPart* part = item->partAt(partIndex);
+
+            if (part == 0)
+            {
+                qWarning() << "OpenGLViewerWidget drawItems failed: null RenderPart:"
+                           << "Item=" << item->name()
+                           << "Index=" << partIndex;
+                return false;
+            }
+
+            if (part->geometry() == 0) continue;
+
+            PartEntry entry;
+            entry.item = item;
+            entry.part = part;
+
+            if (part->isTransparent(*item))
+                transparentParts.push_back(entry);
+            else
+                opaqueParts.push_back(entry);
+        }
+    }
+
+    /// 第二阶段：先绘制全部不透明 Part。
+    for (std::size_t index = 0; index < opaqueParts.size(); ++index)
+    {
+        const PartEntry& entry = opaqueParts[index];
+
+        if (!entry.part->draw(renderer, *entry.item, context, lights))
+        {
+            qWarning() << "OpenGLViewerWidget drawItems failed while drawing opaque RenderPart:"
+                       << "Item=" << entry.item->name()
+                       << "PartId=" << static_cast<qulonglong>(entry.part->id());
             return false;
         }
     }
 
-    /// 第二阶段：绘制全部 Item 的持久化 Screen Label。
-    /// Label 仍保留独立阶段；Label 的具体 Blend / Lighting / Pixel 规则由 RenderLabel::draw() 决定。
+    /// 第三阶段：Weighted Blended OIT。
+    ///
+    /// OpenGL 3.3 下采用两个透明 Geometry Pass：
+    /// 1. Accumulation：加法累积颜色和权重；
+    /// 2. Revealage：乘法累积透过率；
+    /// 最后一次全屏 Composite 合成回主 Framebuffer。
+    if (!transparentParts.empty())
+    {
+        if (!renderer.beginWeightedOIT(context))
+        {
+            /// OIT 初始化失败时保留普通 Alpha Blend 兜底，不影响基本显示。
+            for (std::size_t index = 0; index < transparentParts.size(); ++index)
+            {
+                const PartEntry& entry = transparentParts[index];
+
+                if (!entry.part->draw(renderer, *entry.item, context, lights))
+                    return false;
+            }
+        }
+        else
+        {
+            if (!renderer.beginWeightedOITAccumulation())
+            {
+                renderer.cancelWeightedOIT();
+                return false;
+            }
+
+            for (std::size_t index = 0; index < transparentParts.size(); ++index)
+            {
+                const PartEntry& entry = transparentParts[index];
+
+                if (!entry.part->draw(renderer, *entry.item, context, lights))
+                {
+                    renderer.cancelWeightedOIT();
+                    return false;
+                }
+            }
+
+            if (!renderer.beginWeightedOITRevealage())
+            {
+                renderer.cancelWeightedOIT();
+                return false;
+            }
+
+            for (std::size_t index = 0; index < transparentParts.size(); ++index)
+            {
+                const PartEntry& entry = transparentParts[index];
+
+                if (!entry.part->draw(renderer, *entry.item, context, lights))
+                {
+                    renderer.cancelWeightedOIT();
+                    return false;
+                }
+            }
+
+            if (!renderer.compositeWeightedOIT())
+            {
+                renderer.cancelWeightedOIT();
+                return false;
+            }
+        }
+    }
+
+    /// 第四阶段：绘制全部持久化 Screen Label。
     for (int itemIndex = 0; itemIndex < itemCount; ++itemIndex)
     {
         const RenderItem* item = itemManager.itemAt(itemIndex);
 
         if (item == 0)
-        {
-            qWarning() << "OpenGLViewerWidget drawItems failed: null RenderItem:"
-                       << "Index=" << itemIndex;
             return false;
-        }
 
         if (!item->drawLabels(renderer, context, lights))
         {
@@ -746,39 +873,22 @@ void OpenGLViewerWidget::toggleProjection()
 
 void OpenGLViewerWidget::setMeasurementTool(MeasurementTool* tool)
 {
-    if (m_measurementTool == tool)
-    {
-        if (m_measurementTool != 0)
-            m_measurementTool->reset();
-
-        update();
-        return;
-    }
-
-    if (m_measurementTool != 0)
-        m_measurementTool->reset();
-
-    m_measurementTool = tool;
-
-    if (m_measurementTool != 0)
-        m_measurementTool->reset();
-
-    update();
+    setActiveTool(tool);
 }
 MeasurementTool* OpenGLViewerWidget::measurementTool()
 {
-    return m_measurementTool;
+    return dynamic_cast<MeasurementTool*>(m_toolManager.activeTool());
 }
 
 const MeasurementTool* OpenGLViewerWidget::measurementTool() const
 {
-    return m_measurementTool;
+    return dynamic_cast<const MeasurementTool*>(m_toolManager.activeTool());
 }
 void OpenGLViewerWidget::clearMeasurementItems()
 {
-    while (m_measurementItemManager.count() > 0)
+    while (m_toolItemManager.count() > 0)
     {
-        const int index = static_cast<int>(m_measurementItemManager.count()) - 1;
+        const int index = static_cast<int>(m_toolItemManager.count()) - 1;
 
         if (!removeMeasurementItemAt(index))
         {
@@ -792,7 +902,7 @@ void OpenGLViewerWidget::clearMeasurementItems()
 
 bool OpenGLViewerWidget::removeLastMeasurementItem()
 {
-    const int count = static_cast<int>(m_measurementItemManager.count());
+    const int count = static_cast<int>(m_toolItemManager.count());
 
     if (count <= 0)
         return false;
@@ -806,10 +916,10 @@ bool OpenGLViewerWidget::removeLastMeasurementItem()
 
 bool OpenGLViewerWidget::removeMeasurementItemAt(int index)
 {
-    if (index < 0 || index >= static_cast<int>(m_measurementItemManager.count()))
+    if (index < 0 || index >= static_cast<int>(m_toolItemManager.count()))
         return false;
 
-    const RenderItem* item = m_measurementItemManager.itemAt(index);
+    const RenderItem* item = m_toolItemManager.itemAt(index);
 
     if (item == 0)
         return false;
@@ -878,7 +988,7 @@ bool OpenGLViewerWidget::removeMeasurementItemAt(int index)
     const RenderItemId itemId = item->id();
 
     /// RenderItem 拥有 RenderPart / RenderLabel，但不拥有它们引用的资源。
-    if (!m_measurementItemManager.remove(itemId))
+    if (!m_toolItemManager.remove(itemId))
         return false;
 
     bool contextCurrent = false;
@@ -1209,7 +1319,7 @@ void OpenGLViewerWidget::clearSceneDepthCache()
 
 void OpenGLViewerWidget::mousePressEvent(QMouseEvent* event)
 {
-    if (m_measurementTool != 0 && m_measurementTool->mousePressEvent(this, event))
+    if (m_toolManager.mousePressEvent(this, event))
     {
         event->accept();
         update();
@@ -1274,7 +1384,7 @@ void OpenGLViewerWidget::mousePressEvent(QMouseEvent* event)
 
 void OpenGLViewerWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_measurementTool != 0 && m_measurementTool->mouseMoveEvent(this, event))
+    if (m_toolManager.mouseMoveEvent(this, event))
     {
         event->accept();
         update();
@@ -1317,20 +1427,17 @@ void OpenGLViewerWidget::mouseMoveEvent(QMouseEvent* event)
 
 void OpenGLViewerWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (m_measurementTool != 0)
+    MeasurementTool* measurement = measurementTool();
+    const bool toolHandled = m_toolManager.mouseReleaseEvent(this, event);
+
+    if (measurement != 0 && event->button() == Qt::LeftButton && measurement->state() == MeasurementState::Finished)
+        emit measurementFinished(measurement->type());
+
+    if (toolHandled)
     {
-        MeasurementTool* tool = m_measurementTool;
-        const bool handled = tool->mouseReleaseEvent(this, event);
-
-        if (event->button() == Qt::LeftButton && tool->state() == MeasurementState::Finished)
-            emit measurementFinished(tool->type());
-
-        if (handled)
-        {
-            event->accept();
-            update();
-            return;
-        }
+        event->accept();
+        update();
+        return;
     }
     if (event->button() == Qt::LeftButton || event->button() == Qt::MiddleButton)
     {
@@ -1369,20 +1476,17 @@ void OpenGLViewerWidget::wheelEvent(QWheelEvent* event)
 
 void OpenGLViewerWidget::keyPressEvent(QKeyEvent* event)
 {
-    if (m_measurementTool != 0)
+    MeasurementTool* measurement = measurementTool();
+    const bool toolHandled = m_toolManager.keyPressEvent(this, event);
+
+    if (measurement != 0 && measurement->state() == MeasurementState::Finished)
+        emit measurementFinished(measurement->type());
+
+    if (toolHandled)
     {
-        MeasurementTool* tool = m_measurementTool;
-        const bool handled = tool->keyPressEvent(this, event);
-
-        if (tool->state() == MeasurementState::Finished)
-            emit measurementFinished(tool->type());
-
-        if (handled)
-        {
-            event->accept();
-            update();
-            return;
-        }
+        event->accept();
+        update();
+        return;
     }
 
     if (handleKeyPress(event))
@@ -1445,10 +1549,7 @@ bool OpenGLViewerWidget::handleKeyPress(QKeyEvent* event)
 }
 void OpenGLViewerWidget::drawViewportOverlay(QPainter& painter)
 {
-
-    /// 当前正在操作的临时 Overlay。
-    if (m_measurementTool != 0)
-        m_measurementTool->drawOverlay(this, painter);
+    m_toolManager.drawOverlay(this, painter);
 }
 void OpenGLViewerWidget::updateViewportOverlay()
 {

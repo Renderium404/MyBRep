@@ -6,7 +6,7 @@
 #include <QVector2D>
 #include <QVector3D>
 #include <QVector4D>
-
+#include "MyOpenGL/Tool/ViewerTool.h"
 class QKeyEvent;
 class QMouseEvent;
 class QPainter;
@@ -48,11 +48,11 @@ struct MeasurementPoint
 
 /// 测量工具基类。
 /// 统一管理测量状态、结果线颜色和结果线宽度。
-class MeasurementTool
+class MeasurementTool : public ViewerTool
 {
 public:
     MeasurementTool();
-    virtual ~MeasurementTool();
+    ~MeasurementTool() override;
 
     /// 基本信息
     /// 返回当前测量类型。
@@ -75,14 +75,14 @@ public:
     /// 交互
 
     /// 重置当前测量。
-    virtual void reset() = 0;
-    virtual bool mousePressEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) = 0;
-    virtual bool mouseMoveEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) = 0;
-    virtual bool mouseReleaseEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) = 0;
-    virtual bool keyPressEvent(OpenGLViewerWidget* viewer, QKeyEvent* event);
+    void reset() override = 0;
+    bool mousePressEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) override = 0;
+    bool mouseMoveEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) override = 0;
+    bool mouseReleaseEvent(OpenGLViewerWidget* viewer, QMouseEvent* event) override = 0;
+    bool keyPressEvent(OpenGLViewerWidget* viewer, QKeyEvent* event) override;
 
     /// 绘制当前测量过程中的临时 Overlay。
-    virtual void drawOverlay(OpenGLViewerWidget* viewer, QPainter& painter) const = 0;
+    void drawOverlay(OpenGLViewerWidget* viewer, QPainter& painter) const override = 0;
 
 protected:
     /// 创建持久化文本 Label。

@@ -269,7 +269,7 @@ bool Length3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     const QVector3D& p1 = start.worldPosition;
     const QVector3D& p2 = end.worldPosition;
 
-    RenderItem* item = viewer->measurementItemManager().createItem("MeasurementLength3DResult");
+    RenderItem* item = viewer->toolItemManager().createItem("MeasurementLength3DResult");
 
     if (item == 0)
         return false;
@@ -286,11 +286,11 @@ bool Length3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     if (geometry == 0 || viewer->resourceManager().adopt(geometry) == InvalidResourceId)
     {
         delete geometry;
-        viewer->measurementItemManager().remove(item->id());
+        viewer->toolItemManager().remove(item->id());
         return false;
     }
 
-    RenderPart* part = viewer->measurementItemManager().createPart();
+    RenderPart* part = viewer->toolItemManager().createPart();
     item->addPart(part);
     if (part != 0)
     {

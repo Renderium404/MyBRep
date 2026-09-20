@@ -19,7 +19,8 @@
 #include "MyOpenGL/Resource/BufferGeometry.h"
 #include "MyOpenGL/Viewer/System/CoordinateSystem.h"
 #include "MyOpenGL/Viewer/System/ViewNavigation.h"
-#include "MyOpenGL/Viewer/Measurement/MeasurementTool.h"
+#include "MyOpenGL/Tool/ToolManager.h"
+#include "MyOpenGL/Tool/Measurement/MeasurementTool.h"
 class QContextMenuEvent;
 class QKeyEvent;
 class QMouseEvent;
@@ -55,8 +56,16 @@ public:
 
     ItemManager& itemManager();
     const ItemManager& itemManager() const;
-    ItemManager& measurementItemManager();
-    const ItemManager& measurementItemManager() const;
+    ItemManager& toolItemManager();
+    const ItemManager& toolItemManager() const;
+
+    /// Viewer 工具
+    ToolManager& toolManager();
+    const ToolManager& toolManager() const;
+    void setActiveTool(ViewerTool* tool);
+    ViewerTool* activeTool();
+    const ViewerTool* activeTool() const;
+
     /// Viewer 系统显示
     CoordinateSystem& coordinateSystem();
     const CoordinateSystem& coordinateSystem() const;
@@ -71,7 +80,7 @@ public:
     bool fitItemsToView(float margin = 1.15f);
     void toggleProjection();//改变投影模式
 
-    /// 测量工具
+    /// 测量工具兼容接口
     void setMeasurementTool(MeasurementTool* tool);
     MeasurementTool* measurementTool();
     const MeasurementTool* measurementTool() const;
@@ -162,8 +171,8 @@ private:
     LightManager m_lightManager;                      // Light 管理。
     CameraManager m_cameraManager;                    // Camera 管理和导航操作。
     ItemManager m_itemManager;                        // 用户 RenderItem 管理。
-    ItemManager m_measurementItemManager;                 // 测量辅助 Item 管理。
-    MeasurementTool* m_measurementTool;               // 当前测量工具，不负责生命周期。
+    ItemManager m_toolItemManager;                     // 工具辅助 Item 管理。
+    ToolManager m_toolManager;                         // Viewer 工具管理，不拥有 Tool。
     /// Viewer 系统渲染
     Material* m_systemVertexColorMaterial;            // 坐标系和导航器共用的无光照顶点颜色 Material。
     BufferGeometry m_navigationAnchorGeometry;        // Camera Navigation 锚点显示 Geometry。

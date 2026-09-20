@@ -23,7 +23,7 @@ class Topology_Face : public Topology_Object
 public:
     // 构造空拓扑面句柄。
     Topology_Face();
-
+    explicit Topology_Face(const Topology_Object& object);
     // 使用完整参数曲面和零个或多个闭合裁剪Wire创建新的Forward拓扑面身份。
     Topology_Face(const Foundation::RefPtr<const Geometry_Surface>& geometry,
                   const std::vector<Topology_Wire>& wires);

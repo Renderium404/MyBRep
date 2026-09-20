@@ -55,7 +55,12 @@ namespace MyBRep
 Topology_Wire::Topology_Wire()
 {
 }
-
+Topology_Wire::Topology_Wire(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TWire*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TWire.");
+}
 Topology_Wire::Topology_Wire(const std::vector<Topology_Edge>& edges)
     : Topology_Object(createTWire(edges), Topology_Orientation::Forward)
 {

@@ -14,7 +14,12 @@ Topology_Vertex::Topology_Vertex(const MyMath::Vector3& point)
                       Topology_Orientation::Forward)
 {
 }
-
+Topology_Vertex::Topology_Vertex(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TVertex*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TVertex.");
+}
 /// 几何数据
 
 const MyMath::Vector3& Topology_Vertex::point() const

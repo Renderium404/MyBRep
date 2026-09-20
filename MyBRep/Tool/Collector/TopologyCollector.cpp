@@ -2,10 +2,16 @@
 
 #include "MyBRep/Foundation/Diagnostic.h"
 
+#include "MyBRep/Topology/Edge/Topology_TEdge.h"
+#include "MyBRep/Topology/Face/Topology_TFace.h"
+#include "MyBRep/Topology/Shell/Topology_TShell.h"
+#include "MyBRep/Topology/Solid/Topology_TSolid.h"
+#include "MyBRep/Topology/Wire/Topology_TWire.h"
+
 namespace
 {
 
-template <typename T>
+template<typename T>
 bool containsSame(const std::vector<T>& objects, const T& candidate)
 {
     for (std::size_t index = 0; index < objects.size(); ++index)
@@ -16,7 +22,7 @@ bool containsSame(const std::vector<T>& objects, const T& candidate)
     return false;
 }
 
-template <typename T>
+template<typename T>
 void appendUnique(std::vector<T>& objects, const T& candidate)
 {
     if (!containsSame(objects, candidate)) objects.push_back(candidate);
@@ -79,12 +85,41 @@ namespace MyBRep
 namespace Tool
 {
 
+TopologyCollection TopologyCollector::collect(const Topology_Object& topology)
+{
+    MYBREP_ASSERT_MESSAGE(topology.isValid(), "TopologyCollector requires a valid Topology_Object.");
+
+    if (!topology.isValid()) return TopologyCollection();
+
+    Topology_TObject* object = topology.tObject().get();
+    if (object == 0) return TopologyCollection();
+
+    if (dynamic_cast<Topology_TEdge*>(object) != 0)
+        return collect(Topology_Edge(topology));
+
+    if (dynamic_cast<Topology_TWire*>(object) != 0)
+        return collect(Topology_Wire(topology));
+
+    if (dynamic_cast<Topology_TFace*>(object) != 0)
+        return collect(Topology_Face(topology));
+
+    if (dynamic_cast<Topology_TShell*>(object) != 0)
+        return collect(Topology_Shell(topology));
+
+    if (dynamic_cast<Topology_TSolid*>(object) != 0)
+        return collect(Topology_Solid(topology));
+
+    return TopologyCollection();
+}
+
 TopologyCollection TopologyCollector::collect(const Topology_Edge& edge)
 {
     MYBREP_ASSERT_MESSAGE(edge.isValid(), "TopologyCollector requires a valid Topology_Edge.");
 
     TopologyCollection result;
+
     if (edge.isValid()) result.edges.push_back(edge);
+
     return result;
 }
 

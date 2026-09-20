@@ -56,6 +56,26 @@ public:
     /// 清除指定 Viewport 范围内的 Depth Buffer。
     bool clearDepth(const RenderViewport& viewport);
 
+    /// Weighted Blended OIT
+
+    /// 准备当前 Frame 的 Weighted Blended OIT Buffer，并复制当前不透明场景 Depth。
+    bool beginWeightedOIT(const RenderContext& context);
+
+    /// 开始透明颜色/权重累积 Pass。
+    bool beginWeightedOITAccumulation();
+
+    /// 开始透明 Revealage 累积 Pass。
+    bool beginWeightedOITRevealage();
+
+    /// 将 Weighted Blended OIT 结果合成回 beginWeightedOIT() 时的目标 Framebuffer。
+    bool compositeWeightedOIT();
+
+    /// 放弃当前 OIT Pass，并恢复目标 Framebuffer 和基础 OpenGL 状态。
+    void cancelWeightedOIT();
+
+    /// 当前是否位于 Weighted Blended OIT 流程中。
+    bool weightedOITActive() const;
+
     /// 使用一个 RenderState 绘制一次 Geometry。
     /// geometry、material 和 lights 中的对象均仅作为引用使用，Renderer 不拥有这些对象。
     bool drawGeometry(const Geometry* geometry, const Material* material, const RenderState& state, const std::vector<const Light*>& lights);
@@ -76,6 +96,31 @@ public:
     bool drawWireGeometry(const Geometry* geometry, const QVector4D& color, const std::vector<RenderState>& states, bool overlay = false);
 
 private:
+    enum class WeightedOITStage
+    {
+        None,
+        Prepared,
+        Accumulation,
+        Revealage
+    };
+
+    /// Weighted Blended OIT
+
+    bool ensureWeightedOITResources(int width, int height);
+    void releaseWeightedOITResources();
+
+    bool drawWeightedOITGeometry(const Geometry* geometry,
+                                 const Material* material,
+                                 const RenderState* states,
+                                 std::size_t stateCount,
+                                 const std::vector<const Light*>& lights);
+
+    bool drawWeightedOITWireGeometry(const Geometry* geometry,
+                                     const QVector4D& color,
+                                     const RenderState* states,
+                                     std::size_t stateCount,
+                                     bool overlay);
+
     /// Geometry Dispatch
 
     /// 根据 Material 类型选择实际 Geometry Pipeline。
@@ -173,6 +218,44 @@ private:
     GLint m_litLightRangeLocation;        // 光照 Program 的灯光范围数组 Uniform Location。
     GLint m_litLightInnerConeCosLocation; // 光照 Program 的 Spot 内锥角余弦数组 Uniform Location。
     GLint m_litLightOuterConeCosLocation; // 光照 Program 的 Spot 外锥角余弦数组 Uniform Location。
+
+    /// Weighted Blended OIT Shader。
+    ShaderProgram m_weightedOITProgram;
+    ShaderProgram m_weightedOITCompositeProgram;
+
+    GLint m_oitModelLocation;
+    GLint m_oitViewLocation;
+    GLint m_oitProjectionLocation;
+    GLint m_oitNormalLocation;
+    GLint m_oitSurfaceModeLocation;
+    GLint m_oitLightingEnabledLocation;
+    GLint m_oitBaseColorLocation;
+    GLint m_oitTextureSamplerLocation;
+    GLint m_oitPassLocation;
+    GLint m_oitAmbientLightLocation;
+    GLint m_oitLightCountLocation;
+    GLint m_oitLightTypeLocation;
+    GLint m_oitLightPositionLocation;
+    GLint m_oitLightDirectionLocation;
+    GLint m_oitLightColorLocation;
+    GLint m_oitLightIntensityLocation;
+    GLint m_oitLightRangeLocation;
+    GLint m_oitLightInnerConeCosLocation;
+    GLint m_oitLightOuterConeCosLocation;
+
+    GLint m_oitCompositeAccumLocation;
+    GLint m_oitCompositeRevealLocation;
+
+    GLuint m_oitFramebuffer;
+    GLuint m_oitAccumTexture;
+    GLuint m_oitRevealTexture;
+    GLuint m_oitDepthStencilBuffer;
+    GLuint m_oitFullscreenVao;
+
+    int m_oitWidth;
+    int m_oitHeight;
+    GLint m_oitTargetFramebuffer;
+    WeightedOITStage m_oitStage;
 
     RenderContext m_renderContext; // 当前 Frame 的共享渲染环境。
 

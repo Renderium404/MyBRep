@@ -15,7 +15,12 @@ Topology_Shape::Topology_Shape(const Foundation::RefPtr<const Geometry_Shape>& g
                       Topology_Orientation::Forward)
 {
 }
-
+Topology_Shape::Topology_Shape(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TShape*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TShape.");
+}
 Topology_Shape::Topology_Shape(const Foundation::RefPtr<Topology_TObject>& object,
                                Topology_Orientation orientation)
     : Topology_Object(object, orientation)

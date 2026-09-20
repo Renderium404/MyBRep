@@ -21,49 +21,69 @@ enum class SurfaceMode
     Texture      // 使用二维纹理采样颜色。
 };
 
+/// 材质混合方式。
+enum class BlendMode
+{
+    Opaque, // 不透明，不进行颜色混合。
+    Alpha   // 标准 Alpha 混合。
+};
+
 /// 基础表面材质。
-/// 只描述表面颜色来源以及是否受到场景光照影响，不拥有 GPU Resource。
+/// 描述表面颜色来源、光照和混合方式，不拥有 GPU Resource。
 class Material
 {
 public:
     /// 基本信息
-    MaterialId id() const { return m_id; }
-    const QString& name() const { return m_name; }
+
+    MaterialId id() const{return m_id;}
+    const QString& name() const{return m_name;}
 
     QString type() const;
-    SurfaceMode surfaceMode() const { return m_type; }
+    SurfaceMode surfaceMode() const{return m_type;}
 
     /// 光照
-    bool lightingEnabled() const { return m_lightingEnabled; }
-    void setLightingEnabled(bool enabled) { m_lightingEnabled = enabled; }
+
+    bool lightingEnabled() const{return m_lightingEnabled;}
+    void setLightingEnabled(bool enabled){m_lightingEnabled = enabled;}
 
     /// 表面渲染
+
     bool setSurfaceMode(SurfaceMode mode);
 
+    /// 混合
+
+    BlendMode blendMode() const{return m_blendMode;}
+    bool setBlendMode(BlendMode mode);
+    bool isTransparent() const{return m_blendMode != BlendMode::Opaque;}
+
     /// 统一颜色
+
     /// Texture 模式下作为纹理颜色乘数使用。
-    const QVector4D& color() const { return m_color; }
+    const QVector4D& color() const{return m_color;}
     bool setColor(const QVector4D& color);
 
     /// 纹理
-    Texture* texture() { return m_texture; }
-    const Texture* texture() const { return m_texture; }
-    void setTexture(Texture* texture) { m_texture = texture; }
+
+    Texture* texture(){return m_texture;}
+    const Texture* texture() const{return m_texture;}
+    void setTexture(Texture* texture){m_texture = texture;}
 
 private:
     friend class MaterialManager;
 
     /// MaterialManager 内部接口
+
     explicit Material(const QString& name);
     ~Material();
 
-    void setId(MaterialId id) { m_id = id; }
+    void setId(MaterialId id){m_id = id;}
 
 private:
     MaterialId m_id;           // 材质唯一 ID。
     QString m_name;            // 材质名称。
     SurfaceMode m_type;        // 表面颜色来源。
     bool m_lightingEnabled;    // 是否受到场景光照影响。
+    BlendMode m_blendMode;     // 材质混合方式。
     QVector4D m_color;         // Color 模式颜色；Texture 模式作为纹理颜色乘数。
     Texture* m_texture;        // Texture 模式使用的纹理，不拥有对象。
 };

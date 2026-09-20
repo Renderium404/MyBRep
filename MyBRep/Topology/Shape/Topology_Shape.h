@@ -18,6 +18,7 @@ class Topology_Shape : public Topology_Object
 public:
     // 构造不引用任何共享Topology_TShape实体的空句柄。
     Topology_Shape();
+    explicit Topology_Shape(const Topology_Object& object);
     // 使用指定连续实体几何内核创建新的Forward拓扑形体身份。
     explicit Topology_Shape(const Foundation::RefPtr<const Geometry_Shape>& geometry);
     Topology_Shape(const Topology_Shape&) = default;

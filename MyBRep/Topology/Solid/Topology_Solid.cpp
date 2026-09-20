@@ -21,7 +21,12 @@ std::vector<Topology_Shell> singleShellVector(const Topology_Shell& shell)
 Topology_Solid::Topology_Solid()
 {
 }
-
+Topology_Solid::Topology_Solid(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TSolid*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TSolid.");
+}
 Topology_Solid::Topology_Solid(const std::vector<Topology_Shell>& shells)
     : Topology_Object(Foundation::RefPtr<Topology_TObject>(
                           new Topology_TSolid(shells)),

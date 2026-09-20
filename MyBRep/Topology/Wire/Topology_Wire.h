@@ -21,6 +21,7 @@ class Topology_Wire : public Topology_Object
 public:
     // 构造不引用任何共享拓扑Wire实体的空句柄。
     Topology_Wire();
+    explicit Topology_Wire(const Topology_Object& object);
     // 使用至少一条按Topology_Vertex身份连续连接的有向Edge创建新的独立Topology_TWire实体和Forward句柄。
     explicit Topology_Wire(const std::vector<Topology_Edge>& edges);
     Topology_Wire(const Topology_Wire&) = default;

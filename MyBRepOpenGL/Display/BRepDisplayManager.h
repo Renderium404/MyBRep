@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <map>
 #include <vector>
-#include "MyBRep/Instance/Instance_Object.h"
+#include "MyBRep/Instance/Instance.h"
 #include "MyBRep/Topology/Topology_Id.h"
 #include "MyOpenGL/Core/Resource.h"
 #include "MyOpenGL/Item/RenderItem.h"

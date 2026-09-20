@@ -28,7 +28,7 @@ class Topology_Edge : public Topology_Object
 public:
     // 构造空拓扑边句柄。
     Topology_Edge();
-
+    explicit Topology_Edge(const Topology_Object& object);
     // 使用起终拓扑点、完整三维曲线及严格递增有限参数区间创建新的Forward拓扑边身份。
     Topology_Edge(const Topology_Vertex& startVertex,
                   const Topology_Vertex& endVertex,

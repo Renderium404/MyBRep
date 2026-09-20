@@ -20,6 +20,7 @@ class Topology_Solid : public Topology_Object
 public:
     // 构造不引用任何共享Topology_TSolid实体的空句柄。
     Topology_Solid();
+    explicit Topology_Solid(const Topology_Object& object);
     // 使用至少一个有效闭合Shell创建新的Forward完整B-Rep实体身份。
     explicit Topology_Solid(const std::vector<Topology_Shell>& shells);
     // 使用一个有效闭合Shell创建新的Forward完整B-Rep实体身份。

@@ -8,7 +8,12 @@ namespace MyBRep
 Topology_Shell::Topology_Shell()
 {
 }
-
+Topology_Shell::Topology_Shell(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TShell*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TShell.");
+}
 Topology_Shell::Topology_Shell(const std::vector<Topology_Face>& faces)
     : Topology_Object(Foundation::RefPtr<Topology_TObject>(
                           new Topology_TShell(faces)),

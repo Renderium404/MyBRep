@@ -18,8 +18,8 @@ struct BRepDisplayStyle
     bool isWireframeValid() const;
     bool isFaceValid() const;
 
-    QVector4D surfaceColor;      // Face表面颜色。
-    QVector4D wireColor;         // Edge线框颜色。
+    QVector4D surfaceColor;      // Face表面颜色；Alpha<1时使用透明混合。
+    QVector4D wireColor;         // Edge线框颜色；Alpha<1时使用透明混合。
     float wireWidth;             // Edge显示线宽，单位Pixel。
     bool surfaceLightingEnabled; // Face表面是否启用基础光照。
 

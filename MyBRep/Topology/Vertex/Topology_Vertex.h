@@ -14,6 +14,7 @@ class Topology_Vertex : public Topology_Object
 public:
     // 构造空拓扑点句柄。
     Topology_Vertex();
+    explicit Topology_Vertex(const Topology_Object& object);
     // 使用指定有限三维点创建新的拓扑点身份。
     explicit Topology_Vertex(const MyMath::Vector3& point);
 

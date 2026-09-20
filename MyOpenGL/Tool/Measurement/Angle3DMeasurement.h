@@ -3,7 +3,7 @@
 
 #include <QString>
 
-#include "MyOpenGL/Viewer/Measurement/MeasurementTool.h"
+#include "MyOpenGL/Tool/Measurement/MeasurementTool.h"
 
 class Material;
 

@@ -102,17 +102,21 @@ add_library(MyOpenGLViewer STATIC
     Viewer/System/ViewNavigation.cpp
     Viewer/System/ViewNavigation.h
 
-    Viewer/Measurement/MeasurementTool.h
-    Viewer/Measurement/MeasurementTool.cpp
-    Viewer/Measurement/Length2DMeasurement.h
-    Viewer/Measurement/Length2DMeasurement.cpp
-    Viewer/Measurement/Length3DMeasurement.h
-    Viewer/Measurement/Length3DMeasurement.cpp
+    Tool/ViewerTool.h
+    Tool/ViewerTool.cpp
+    Tool/ToolManager.h
+    Tool/ToolManager.cpp
+    Tool/Measurement/MeasurementTool.h
+    Tool/Measurement/MeasurementTool.cpp
+    Tool/Measurement/Length2DMeasurement.h
+    Tool/Measurement/Length2DMeasurement.cpp
+    Tool/Measurement/Length3DMeasurement.h
+    Tool/Measurement/Length3DMeasurement.cpp
 
-    Viewer/Measurement/Angle2DMeasurement.h
-    Viewer/Measurement/Angle2DMeasurement.cpp
-    Viewer/Measurement/Angle3DMeasurement.h
-    Viewer/Measurement/Angle3DMeasurement.cpp
+    Tool/Measurement/Angle2DMeasurement.h
+    Tool/Measurement/Angle2DMeasurement.cpp
+    Tool/Measurement/Angle3DMeasurement.h
+    Tool/Measurement/Angle3DMeasurement.cpp
 )
 
 target_include_directories(MyOpenGLViewer

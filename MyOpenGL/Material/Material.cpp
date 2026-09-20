@@ -7,6 +7,7 @@ Material::Material(const QString& name)
     , m_name(name)
     , m_type(SurfaceMode::Color)
     , m_lightingEnabled(true)
+    , m_blendMode(BlendMode::Opaque)
     , m_color(1.0f, 1.0f, 1.0f, 1.0f)
     , m_texture(0)
 {
@@ -49,6 +50,22 @@ bool Material::setSurfaceMode(SurfaceMode mode)
     }
 
     qWarning() << "Material setSurfaceMode failed: unsupported surface mode:" << static_cast<int>(mode);
+    return false;
+}
+
+/// 混合
+
+bool Material::setBlendMode(BlendMode mode)
+{
+    switch (mode)
+    {
+    case BlendMode::Opaque:
+    case BlendMode::Alpha:
+        m_blendMode = mode;
+        return true;
+    }
+
+    qWarning() << "Material setBlendMode failed: unsupported blend mode:" << static_cast<int>(mode);
     return false;
 }
 

@@ -8,7 +8,12 @@ namespace MyBRep
 Topology_Face::Topology_Face()
 {
 }
-
+Topology_Face::Topology_Face(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TFace*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TFace.");
+}
 Topology_Face::Topology_Face(const Foundation::RefPtr<const Geometry_Surface>& geometry,const std::vector<Topology_Wire>& wires)
     : Topology_Object(Foundation::RefPtr<Topology_TObject>(new Topology_TFace(geometry, wires))
     ,Topology_Orientation::Forward)

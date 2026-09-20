@@ -19,6 +19,40 @@
 #include "MyOpenGL/Render/MyOpenGLContext.h"
 #include "MyOpenGL/Resource/BufferGeometry.h"
 #include "MyOpenGL/Resource/Geometry.h"
+
+namespace
+{
+
+bool containsPartId(const std::vector<RenderPartId>& partIds, RenderPartId partId)
+{
+    for (std::size_t index = 0; index < partIds.size(); ++index)
+    {
+        if (partIds[index] == partId) return true;
+    }
+
+    return false;
+}
+
+std::vector<RenderPartId> addedPartIds(const RenderItem& item, const std::vector<RenderPartId>& oldPartIds)
+{
+    std::vector<RenderPartId> result;
+
+    for (int index = 0; index < item.partCount(); ++index)
+    {
+        const RenderPart* part = item.partAt(index);
+        if (part != 0 && !containsPartId(oldPartIds, part->id())) result.push_back(part->id());
+    }
+
+    return result;
+}
+
+BlendMode blendModeForColor(const QVector4D& color)
+{
+    return color.w() < 1.0f ? BlendMode::Alpha : BlendMode::Opaque;
+}
+
+}
+
 namespace MyBRep
 {
 namespace Display
@@ -300,9 +334,10 @@ bool BRepViewerWidget::attachFaceParts(RenderItem& item,
 bool BRepViewerWidget::attachEdgeParts(RenderItem& item,
                                        const std::vector<Topology_Edge>& edges,
                                        const Material* material,
+                                       float lineWidth,
                                        const QString& name)
 {
-    if (material == 0) return false;
+    if (material == 0 || lineWidth <= 0.0f) return false;
 
     for (std::size_t index = 0; index < edges.size(); ++index)
     {
@@ -322,6 +357,8 @@ bool BRepViewerWidget::attachEdgeParts(RenderItem& item,
         part->setMaterial(material);
         part->setLocalBounds(bounds);
 
+        part->setLineWidth(lineWidth);
+
         if (!item.addPart(part))
         {
             itemManager().removePart(part->id());
@@ -331,32 +368,46 @@ bool BRepViewerWidget::attachEdgeParts(RenderItem& item,
 
     return true;
 }
-bool BRepViewerWidget::removeItemParts(RenderItem& item)
+
+std::vector<RenderPartId> BRepViewerWidget::itemPartIds(const RenderItem& item)
 {
-    std::vector<RenderPartId> partIds;
-    partIds.reserve(static_cast<std::size_t>(item.partCount()));
+    std::vector<RenderPartId> result;
+    result.reserve(static_cast<std::size_t>(item.partCount()));
 
     for (int index = 0; index < item.partCount(); ++index)
     {
         const RenderPart* part = item.partAt(index);
-        if (part != 0) partIds.push_back(part->id());
+        if (part != 0) result.push_back(part->id());
     }
 
+    return result;
+}
+
+bool BRepViewerWidget::removeItemParts(RenderItem& item, const std::vector<RenderPartId>& partIds)
+{
     bool result = true;
 
     for (std::size_t index = 0; index < partIds.size(); ++index)
     {
-        if (!item.removePart(partIds[index]))
+        const RenderPartId partId = partIds[index];
+
+        if (!item.removePart(partId))
         {
             result = false;
             continue;
         }
 
-        if (!itemManager().removePart(partIds[index])) result = false;
+        if (!itemManager().removePart(partId)) result = false;
     }
 
     return result;
 }
+
+bool BRepViewerWidget::removeItemParts(RenderItem& item)
+{
+    return removeItemParts(item, itemPartIds(item));
+}
+
 /// 统一Instance显示
 
 BRepDisplayId BRepViewerWidget::addInstance(InstanceId instanceId,
@@ -402,13 +453,14 @@ BRepDisplayId BRepViewerWidget::addInstance(InstanceId instanceId,
 
         if (surfaceMaterial == 0 ||
             !surfaceMaterial->setSurfaceMode(SurfaceMode::Color) ||
-            !surfaceMaterial->setColor(style.surfaceColor))
+            !surfaceMaterial->setColor(style.surfaceColor) ||
+            !surfaceMaterial->setBlendMode(blendModeForColor(style.surfaceColor)))
         {
             if (surfaceMaterial != 0) materialManager().remove(surfaceMaterial->id());
             return InvalidBRepDisplayId;
         }
 
-        // surfaceMaterial->setLightingEnabled(style.surfaceLightingEnabled);
+        surfaceMaterial->setLightingEnabled(style.surfaceLightingEnabled);
     }
 
     if (showEdges)
@@ -417,7 +469,8 @@ BRepDisplayId BRepViewerWidget::addInstance(InstanceId instanceId,
 
         if (wireframeMaterial == 0 ||
             !wireframeMaterial->setSurfaceMode(SurfaceMode::Color) ||
-            !wireframeMaterial->setColor(style.wireColor))
+            !wireframeMaterial->setColor(style.wireColor) ||
+            !wireframeMaterial->setBlendMode(blendModeForColor(style.wireColor)))
         {
             if (wireframeMaterial != 0) materialManager().remove(wireframeMaterial->id());
             if (surfaceMaterial != 0) materialManager().remove(surfaceMaterial->id());
@@ -447,7 +500,7 @@ BRepDisplayId BRepViewerWidget::addInstance(InstanceId instanceId,
         return InvalidBRepDisplayId;
     }
 
-    if (showEdges && !attachEdgeParts(*item, topology.edges, wireframeMaterial, name))
+    if (showEdges && !attachEdgeParts(*item, topology.edges, wireframeMaterial, style.wireWidth, name))
     {
         itemManager().remove(item->id());
         if (wireframeMaterial != 0) materialManager().remove(wireframeMaterial->id());
@@ -688,12 +741,12 @@ BRepDisplayId BRepViewerWidget::displayIdByItem(RenderItemId itemId) const
 
     return InvalidBRepDisplayId;
 }
-bool BRepViewerWidget::refreshPlacement(const Instance_Object& instance)
+/// Instance刷新入口
+
+bool BRepViewerWidget::refreshDisplay(const Instance& instance, const BRepDisplayStyle& style)
 {
-    return refreshPlacement(instance.id(), instance.localToWorld());
-}
-bool BRepViewerWidget::refreshDisplay(const Instance_Object& instance, const BRepDisplayStyle& style)
-{
+    if (!instance.isValid()) return false;
+
     const RenderItemId itemId = m_displayManager.itemId(instance.id());
     if (itemId == InvalidRenderItemId) return false;
 
@@ -702,6 +755,30 @@ bool BRepViewerWidget::refreshDisplay(const Instance_Object& instance, const BRe
 
     return refreshDisplay(displayId, style);
 }
+
+bool BRepViewerWidget::refreshPlacement(const Instance& instance)
+{
+    if (!instance.isValid()) return false;
+
+    return refreshPlacement(instance.id(), instance.localToWorld());
+}
+
+bool BRepViewerWidget::refreshTopology(const Instance& instance)
+{
+    if (!instance.isValid()) return false;
+
+    const RenderItemId itemId = m_displayManager.itemId(instance.id());
+    if (itemId == InvalidRenderItemId) return false;
+
+    const BRepDisplayId displayId = displayIdByItem(itemId);
+    if (displayId == InvalidBRepDisplayId) return false;
+
+    const Tool::TopologyCollection topology = Tool::TopologyCollector::collect(instance.topologyObject());
+    if (topology.empty()) return false;
+
+    return refreshTopology(displayId, topology);
+}
+
 /// 内部释放
 
 bool BRepViewerWidget::removeDisplayResources(BRepDisplayObject& object)
@@ -763,16 +840,16 @@ bool BRepViewerWidget::removeDisplayResources(BRepDisplayObject& object)
 }
 bool BRepViewerWidget::clearUnusedTopologyResources()
 {
-    const std::vector<TopologyId> topologyIds = m_displayManager.topologyIds();
+    const std::vector<TopologyId> initialTopologyIds = m_displayManager.topologyIds();
 
     bool needsContext = false;
 
-    for (std::size_t index = 0; index < topologyIds.size(); ++index)
+    // 清理可能发生级联：删除父Topology后，子Topology才可能变成可释放状态。
+    // 因此只要当前缓存中存在已初始化Resource，就提前准备GL Context。
+    for (std::size_t index = 0; index < initialTopologyIds.size(); ++index)
     {
-        const BRepTopologyBinding* binding = m_displayManager.bindingPointer(topologyIds[index]);
-
+        const BRepTopologyBinding* binding = m_displayManager.bindingPointer(initialTopologyIds[index]);
         if (binding == 0 || !binding->isValid()) continue;
-        if (binding->topology->referenceCount() != 1) continue;
 
         Resource* resource = resourceManager().contains(binding->resourceId)
                                  ? resourceManager().get(binding->resourceId)
@@ -819,35 +896,50 @@ bool BRepViewerWidget::clearUnusedTopologyResources()
     }
 
     bool result = true;
+    bool removed = false;
 
-    for (std::size_t index = 0; index < topologyIds.size(); ++index)
+    // 持续清理直到完整一轮没有Topology被释放。
+    // 删除Face等父Topology后，其持有的Edge可能在下一轮变成DisplayManager独占。
+    do
     {
-        const TopologyId topologyId = topologyIds[index];
-        const BRepTopologyBinding* binding = m_displayManager.bindingPointer(topologyId);
+        removed = false;
 
-        if (binding == 0 || !binding->isValid()) continue;
+        const std::vector<TopologyId> topologyIds = m_displayManager.topologyIds();
 
-        // 1表示只剩Binding自身持有的这一份RefPtr。
-        if (binding->topology->referenceCount() != 1) continue;
-
-        const ResourceId resourceId = binding->resourceId;
-
-        if (resourceManager().contains(resourceId) && !resourceManager().remove(resourceId, gl))
+        for (std::size_t index = 0; index < topologyIds.size(); ++index)
         {
-            result = false;
-            continue;
-        }
+            const TopologyId topologyId = topologyIds[index];
+            const BRepTopologyBinding* binding = m_displayManager.bindingPointer(topologyId);
 
-        // Resource已经解除后再删除Binding。
-        // Binding中的RefPtr释放，Topology_TObject计数1 -> 0并自动析构。
-        if (!m_displayManager.unbindTopology(topologyId)) result = false;
+            if (binding == 0 || !binding->isValid()) continue;
+
+            // 1表示只剩Binding自身持有的这一份RefPtr。
+            if (binding->topology->referenceCount() != 1) continue;
+
+            const ResourceId resourceId = binding->resourceId;
+
+            if (resourceManager().contains(resourceId) && !resourceManager().remove(resourceId, gl))
+            {
+                result = false;
+                continue;
+            }
+
+            // Binding中的RefPtr释放后可能进一步降低子Topology引用计数。
+            if (!m_displayManager.unbindTopology(topologyId))
+            {
+                result = false;
+                continue;
+            }
+
+            removed = true;
+        }
     }
+    while (removed);
 
     if (contextCurrent) doneCurrent();
 
     return result;
 }
-
 bool BRepViewerWidget::clearTopologyResources()
 {
     const std::vector<TopologyId> topologyIds = m_displayManager.topologyIds();
@@ -978,13 +1070,15 @@ bool BRepViewerWidget::refreshDisplay(BRepDisplayId displayId, const BRepDisplay
 
     if (surfaceMaterial != 0)
     {
-        if (!surfaceMaterial->setColor(style.surfaceColor)) return false;
+        if (!surfaceMaterial->setColor(style.surfaceColor) ||
+            !surfaceMaterial->setBlendMode(blendModeForColor(style.surfaceColor))) return false;
         surfaceMaterial->setLightingEnabled(style.surfaceLightingEnabled);
     }
 
     if (wireframeMaterial != 0)
     {
-        if (!wireframeMaterial->setColor(style.wireColor)) return false;
+        if (!wireframeMaterial->setColor(style.wireColor) ||
+            !wireframeMaterial->setBlendMode(blendModeForColor(style.wireColor))) return false;
         wireframeMaterial->setLightingEnabled(false);
     }
 
@@ -999,7 +1093,7 @@ bool BRepViewerWidget::refreshDisplay(BRepDisplayId displayId, const BRepDisplay
 
             if (renderType == RenderType::Lines || renderType == RenderType::LineStrip)
             {
-                if (!part->setLineWidth(style.wireWidth)) return false;
+                part->setLineWidth(style.wireWidth);
             }
         }
     }
@@ -1030,5 +1124,83 @@ bool BRepViewerWidget::refreshPlacement(InstanceId instanceId, const MyMath::Mat
     update();
     return true;
 }
+
+bool BRepViewerWidget::refreshTopology(BRepDisplayId displayId, const Tool::TopologyCollection& topology)
+{
+    if (topology.empty()) return false;
+
+    DisplayMap::iterator displayIterator = m_displays.find(displayId);
+    if (displayIterator == m_displays.end()) return false;
+
+    BRepDisplayObject& object = displayIterator->second;
+
+    const bool showFaces = object.surfaceMaterialId != InvalidMaterialId;
+    const bool showEdges = object.wireframeMaterialId != InvalidMaterialId;
+
+    if (!showFaces && !showEdges) return false;
+    if (showFaces && topology.faces.empty()) return false;
+    if (showEdges && topology.edges.empty()) return false;
+
+    RenderItem* item = itemManager().get(object.itemId);
+    if (item == 0) return false;
+
+    const Material* surfaceMaterial = 0;
+    const Material* wireframeMaterial = 0;
+
+    if (showFaces)
+    {
+        surfaceMaterial = materialManager().get(object.surfaceMaterialId);
+        if (surfaceMaterial == 0) return false;
+    }
+
+    if (showEdges)
+    {
+        wireframeMaterial = materialManager().get(object.wireframeMaterialId);
+        if (wireframeMaterial == 0) return false;
+    }
+
+    float wireWidth = 1.0f;
+
+    if (showEdges)
+    {
+        for (int index = 0; index < item->partCount(); ++index)
+        {
+            const RenderPart* part = item->partAt(index);
+            if (part == 0 || part->geometry() == 0) continue;
+
+            const RenderType renderType = part->geometry()->renderType();
+
+            if (renderType == RenderType::Lines || renderType == RenderType::LineStrip)
+            {
+                wireWidth = part->lineWidth();
+                break;
+            }
+        }
+    }
+
+    const std::vector<RenderPartId> oldPartIds = itemPartIds(*item);
+    const QString name = item->name();
+
+    if (showFaces && !attachFaceParts(*item, topology.faces, surfaceMaterial, name))
+    {
+        const std::vector<RenderPartId> newPartIds = addedPartIds(*item, oldPartIds);
+        removeItemParts(*item, newPartIds);
+        return false;
+    }
+
+    if (showEdges && !attachEdgeParts(*item, topology.edges, wireframeMaterial, wireWidth, name))
+    {
+        const std::vector<RenderPartId> newPartIds = addedPartIds(*item, oldPartIds);
+        removeItemParts(*item, newPartIds);
+        return false;
+    }
+
+    if (!removeItemParts(*item, oldPartIds)) return false;
+    if (!clearUnusedTopologyResources()) return false;
+
+    update();
+    return true;
+}
+
 }
 }

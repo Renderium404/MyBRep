@@ -41,6 +41,36 @@ Renderer::Renderer()
     , m_litLightRangeLocation(-1)
     , m_litLightInnerConeCosLocation(-1)
     , m_litLightOuterConeCosLocation(-1)
+    , m_oitModelLocation(-1)
+    , m_oitViewLocation(-1)
+    , m_oitProjectionLocation(-1)
+    , m_oitNormalLocation(-1)
+    , m_oitSurfaceModeLocation(-1)
+    , m_oitLightingEnabledLocation(-1)
+    , m_oitBaseColorLocation(-1)
+    , m_oitTextureSamplerLocation(-1)
+    , m_oitPassLocation(-1)
+    , m_oitAmbientLightLocation(-1)
+    , m_oitLightCountLocation(-1)
+    , m_oitLightTypeLocation(-1)
+    , m_oitLightPositionLocation(-1)
+    , m_oitLightDirectionLocation(-1)
+    , m_oitLightColorLocation(-1)
+    , m_oitLightIntensityLocation(-1)
+    , m_oitLightRangeLocation(-1)
+    , m_oitLightInnerConeCosLocation(-1)
+    , m_oitLightOuterConeCosLocation(-1)
+    , m_oitCompositeAccumLocation(-1)
+    , m_oitCompositeRevealLocation(-1)
+    , m_oitFramebuffer(0)
+    , m_oitAccumTexture(0)
+    , m_oitRevealTexture(0)
+    , m_oitDepthStencilBuffer(0)
+    , m_oitFullscreenVao(0)
+    , m_oitWidth(0)
+    , m_oitHeight(0)
+    , m_oitTargetFramebuffer(0)
+    , m_oitStage(WeightedOITStage::None)
     , m_clearColor(0.1f, 0.1f, 0.1f, 1.0f)
     , m_initialized(false)
     , m_frameActive(false)
@@ -243,6 +273,156 @@ bool Renderer::initialize(MyOpenGLContext* openGLContext)
         "    FragColor = texture(texture0, texCoord) * color;\n"
         "}\n";
 
+    const char* weightedOITVertexShader =
+        "#version 330 core\n"
+        "layout(location = 0) in vec3 aPosition;\n"
+        "layout(location = 1) in vec3 aNormal;\n"
+        "layout(location = 2) in vec2 aTexCoord;\n"
+        "layout(location = 3) in vec3 aVertexColor;\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
+        "uniform mat3 normalMatrix;\n"
+        "out vec3 fragmentPosition;\n"
+        "out vec3 fragmentNormal;\n"
+        "out vec2 texCoord;\n"
+        "out vec3 vertexColor;\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 worldPosition = model * vec4(aPosition, 1.0);\n"
+        "    fragmentPosition = worldPosition.xyz;\n"
+        "    fragmentNormal = normalize(normalMatrix * aNormal);\n"
+        "    texCoord = aTexCoord;\n"
+        "    vertexColor = aVertexColor;\n"
+        "    gl_Position = projection * view * worldPosition;\n"
+        "}\n";
+
+    const char* weightedOITFragmentShader =
+        "#version 330 core\n"
+        "const int MaxLights = 8;\n"
+        "const int SurfaceModeColor = 0;\n"
+        "const int SurfaceModeVertexColor = 1;\n"
+        "const int SurfaceModeTexture = 2;\n"
+        "const int LightTypeDirectional = 0;\n"
+        "const int LightTypePoint = 1;\n"
+        "const int LightTypeSpot = 2;\n"
+        "in vec3 fragmentPosition;\n"
+        "in vec3 fragmentNormal;\n"
+        "in vec2 texCoord;\n"
+        "in vec3 vertexColor;\n"
+        "uniform int surfaceMode;\n"
+        "uniform bool lightingEnabled;\n"
+        "uniform vec4 baseColor;\n"
+        "uniform sampler2D texture0;\n"
+        "uniform int oitPass;\n"
+        "uniform vec3 ambientLight;\n"
+        "uniform int lightCount;\n"
+        "uniform int lightType[MaxLights];\n"
+        "uniform vec3 lightPosition[MaxLights];\n"
+        "uniform vec3 lightDirection[MaxLights];\n"
+        "uniform vec3 lightColor[MaxLights];\n"
+        "uniform float lightIntensity[MaxLights];\n"
+        "uniform float lightRange[MaxLights];\n"
+        "uniform float lightInnerConeCos[MaxLights];\n"
+        "uniform float lightOuterConeCos[MaxLights];\n"
+        "out vec4 FragColor;\n"
+        "vec4 resolveSurfaceColor()\n"
+        "{\n"
+        "    if (surfaceMode == SurfaceModeVertexColor)\n"
+        "        return vec4(vertexColor, baseColor.a);\n"
+        "    if (surfaceMode == SurfaceModeTexture)\n"
+        "        return texture(texture0, texCoord) * baseColor;\n"
+        "    return baseColor;\n"
+        "}\n"
+        "vec3 resolveLitColor(vec4 surfaceColor)\n"
+        "{\n"
+        "    if (!lightingEnabled)\n"
+        "        return surfaceColor.rgb;\n"
+        "    vec3 normal = normalize(fragmentNormal);\n"
+        "    vec3 result = surfaceColor.rgb * ambientLight;\n"
+        "    for (int i = 0; i < MaxLights; ++i)\n"
+        "    {\n"
+        "        if (i >= lightCount)\n"
+        "            break;\n"
+        "        vec3 toLight = vec3(0.0);\n"
+        "        float attenuation = 1.0;\n"
+        "        if (lightType[i] == LightTypeDirectional)\n"
+        "        {\n"
+        "            toLight = normalize(-lightDirection[i]);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            vec3 delta = lightPosition[i] - fragmentPosition;\n"
+        "            float distanceToLight = length(delta);\n"
+        "            float safeRange = max(lightRange[i], 0.0001);\n"
+        "            if (distanceToLight <= 0.000001 || distanceToLight >= safeRange)\n"
+        "                continue;\n"
+        "            toLight = delta / distanceToLight;\n"
+        "            float normalizedDistance = clamp(distanceToLight / safeRange, 0.0, 1.0);\n"
+        "            attenuation = 1.0 - normalizedDistance;\n"
+        "            attenuation *= attenuation;\n"
+        "            if (lightType[i] == LightTypeSpot)\n"
+        "            {\n"
+        "                vec3 fromLight = -toLight;\n"
+        "                float coneCos = dot(normalize(lightDirection[i]), fromLight);\n"
+        "                attenuation *= smoothstep(lightOuterConeCos[i], lightInnerConeCos[i], coneCos);\n"
+        "            }\n"
+        "        }\n"
+        "        float diffuseFactor = max(dot(normal, toLight), 0.0);\n"
+        "        if (diffuseFactor <= 0.0 || attenuation <= 0.0)\n"
+        "            continue;\n"
+        "        vec3 radiance = lightColor[i] * lightIntensity[i] * attenuation;\n"
+        "        result += surfaceColor.rgb * radiance * diffuseFactor;\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 surfaceColor = resolveSurfaceColor();\n"
+        "    float alpha = clamp(surfaceColor.a, 0.0, 1.0);\n"
+        "    if (alpha <= 0.00001)\n"
+        "        discard;\n"
+        "    if (oitPass == 1)\n"
+        "    {\n"
+        "        FragColor = vec4(0.0, 0.0, 0.0, alpha);\n"
+        "        return;\n"
+        "    }\n"
+        "    vec3 shadedColor = resolveLitColor(surfaceColor);\n"
+        "    float depthWeight = clamp(1.0 - gl_FragCoord.z * 0.95, 0.05, 1.0);\n"
+        "    depthWeight = depthWeight * depthWeight * depthWeight;\n"
+        "    float alphaWeight = clamp(alpha * 8.0 + 0.01, 0.01, 8.0);\n"
+        "    float weight = clamp(alphaWeight * depthWeight, 0.01, 8.0);\n"
+        "    FragColor = vec4(shadedColor * alpha * weight, alpha * weight);\n"
+        "}\n";
+
+    const char* weightedOITCompositeVertexShader =
+        "#version 330 core\n"
+        "out vec2 texCoord;\n"
+        "void main()\n"
+        "{\n"
+        "    vec2 positions[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));\n"
+        "    vec2 position = positions[gl_VertexID];\n"
+        "    texCoord = position * 0.5 + 0.5;\n"
+        "    gl_Position = vec4(position, 0.0, 1.0);\n"
+        "}\n";
+
+    const char* weightedOITCompositeFragmentShader =
+        "#version 330 core\n"
+        "in vec2 texCoord;\n"
+        "uniform sampler2D accumTexture;\n"
+        "uniform sampler2D revealTexture;\n"
+        "out vec4 FragColor;\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 accum = texture(accumTexture, texCoord);\n"
+        "    float revealage = clamp(texture(revealTexture, texCoord).r, 0.0, 1.0);\n"
+        "    float alpha = 1.0 - revealage;\n"
+        "    if (alpha <= 0.00001)\n"
+        "        discard;\n"
+        "    vec3 color = accum.rgb / max(accum.a, 0.00001);\n"
+        "    FragColor = vec4(color, alpha);\n"
+        "}\n";
+
     if (!m_vertexColorProgram.initialize(gl, vertexColorVertexShader, vertexColorFragmentShader))
         return false;
 
@@ -261,6 +441,37 @@ bool Renderer::initialize(MyOpenGLContext* openGLContext)
 
     if (!m_litProgram.initialize(gl, litVertexShader, litFragmentShader))
     {
+        m_textureProgram.release(gl);
+        m_solidColorProgram.release(gl);
+        m_vertexColorProgram.release(gl);
+        return false;
+    }
+
+    if (!m_weightedOITProgram.initialize(gl, weightedOITVertexShader, weightedOITFragmentShader))
+    {
+        m_litProgram.release(gl);
+        m_textureProgram.release(gl);
+        m_solidColorProgram.release(gl);
+        m_vertexColorProgram.release(gl);
+        return false;
+    }
+
+    if (!m_weightedOITCompositeProgram.initialize(gl, weightedOITCompositeVertexShader, weightedOITCompositeFragmentShader))
+    {
+        m_weightedOITProgram.release(gl);
+        m_litProgram.release(gl);
+        m_textureProgram.release(gl);
+        m_solidColorProgram.release(gl);
+        m_vertexColorProgram.release(gl);
+        return false;
+    }
+
+    gl->glGenVertexArrays(1, &m_oitFullscreenVao);
+    if (m_oitFullscreenVao == 0)
+    {
+        m_weightedOITCompositeProgram.release(gl);
+        m_weightedOITProgram.release(gl);
+        m_litProgram.release(gl);
         m_textureProgram.release(gl);
         m_solidColorProgram.release(gl);
         m_vertexColorProgram.release(gl);
@@ -302,6 +513,29 @@ bool Renderer::initialize(MyOpenGLContext* openGLContext)
     m_litLightInnerConeCosLocation = m_litProgram.uniformLocation(gl, "lightInnerConeCos[0]");
     m_litLightOuterConeCosLocation = m_litProgram.uniformLocation(gl, "lightOuterConeCos[0]");
 
+    m_oitModelLocation = m_weightedOITProgram.uniformLocation(gl, "model");
+    m_oitViewLocation = m_weightedOITProgram.uniformLocation(gl, "view");
+    m_oitProjectionLocation = m_weightedOITProgram.uniformLocation(gl, "projection");
+    m_oitNormalLocation = m_weightedOITProgram.uniformLocation(gl, "normalMatrix");
+    m_oitSurfaceModeLocation = m_weightedOITProgram.uniformLocation(gl, "surfaceMode");
+    m_oitLightingEnabledLocation = m_weightedOITProgram.uniformLocation(gl, "lightingEnabled");
+    m_oitBaseColorLocation = m_weightedOITProgram.uniformLocation(gl, "baseColor");
+    m_oitTextureSamplerLocation = m_weightedOITProgram.uniformLocation(gl, "texture0");
+    m_oitPassLocation = m_weightedOITProgram.uniformLocation(gl, "oitPass");
+    m_oitAmbientLightLocation = m_weightedOITProgram.uniformLocation(gl, "ambientLight");
+    m_oitLightCountLocation = m_weightedOITProgram.uniformLocation(gl, "lightCount");
+    m_oitLightTypeLocation = m_weightedOITProgram.uniformLocation(gl, "lightType[0]");
+    m_oitLightPositionLocation = m_weightedOITProgram.uniformLocation(gl, "lightPosition[0]");
+    m_oitLightDirectionLocation = m_weightedOITProgram.uniformLocation(gl, "lightDirection[0]");
+    m_oitLightColorLocation = m_weightedOITProgram.uniformLocation(gl, "lightColor[0]");
+    m_oitLightIntensityLocation = m_weightedOITProgram.uniformLocation(gl, "lightIntensity[0]");
+    m_oitLightRangeLocation = m_weightedOITProgram.uniformLocation(gl, "lightRange[0]");
+    m_oitLightInnerConeCosLocation = m_weightedOITProgram.uniformLocation(gl, "lightInnerConeCos[0]");
+    m_oitLightOuterConeCosLocation = m_weightedOITProgram.uniformLocation(gl, "lightOuterConeCos[0]");
+
+    m_oitCompositeAccumLocation = m_weightedOITCompositeProgram.uniformLocation(gl, "accumTexture");
+    m_oitCompositeRevealLocation = m_weightedOITCompositeProgram.uniformLocation(gl, "revealTexture");
+
     if (m_colorModelLocation < 0 || m_colorViewLocation < 0 || m_colorProjectionLocation < 0 ||
         m_solidModelLocation < 0 || m_solidViewLocation < 0 || m_solidProjectionLocation < 0 || m_solidColorLocation < 0 ||
         m_textureModelLocation < 0 || m_textureViewLocation < 0 || m_textureProjectionLocation < 0 ||
@@ -312,10 +546,25 @@ bool Renderer::initialize(MyOpenGLContext* openGLContext)
         m_litLightPositionLocation < 0 || m_litLightDirectionLocation < 0 ||
         m_litLightColorLocation < 0 || m_litLightIntensityLocation < 0 ||
         m_litLightRangeLocation < 0 || m_litLightInnerConeCosLocation < 0 ||
-        m_litLightOuterConeCosLocation < 0)
+        m_litLightOuterConeCosLocation < 0 ||
+        m_oitModelLocation < 0 || m_oitViewLocation < 0 || m_oitProjectionLocation < 0 || m_oitNormalLocation < 0 ||
+        m_oitSurfaceModeLocation < 0 || m_oitLightingEnabledLocation < 0 || m_oitBaseColorLocation < 0 ||
+        m_oitTextureSamplerLocation < 0 || m_oitPassLocation < 0 || m_oitAmbientLightLocation < 0 ||
+        m_oitLightCountLocation < 0 || m_oitLightTypeLocation < 0 || m_oitLightPositionLocation < 0 ||
+        m_oitLightDirectionLocation < 0 || m_oitLightColorLocation < 0 || m_oitLightIntensityLocation < 0 ||
+        m_oitLightRangeLocation < 0 || m_oitLightInnerConeCosLocation < 0 || m_oitLightOuterConeCosLocation < 0 ||
+        m_oitCompositeAccumLocation < 0 || m_oitCompositeRevealLocation < 0)
     {
         qWarning() << "Renderer initialize failed: required Shader Uniform was not found.";
 
+        if (m_oitFullscreenVao != 0)
+        {
+            gl->glDeleteVertexArrays(1, &m_oitFullscreenVao);
+            m_oitFullscreenVao = 0;
+        }
+
+        m_weightedOITCompositeProgram.release(gl);
+        m_weightedOITProgram.release(gl);
         m_litProgram.release(gl);
         m_textureProgram.release(gl);
         m_solidColorProgram.release(gl);
@@ -343,6 +592,17 @@ void Renderer::release()
         return;
     }
 
+    cancelWeightedOIT();
+    releaseWeightedOITResources();
+
+    if (m_oitFullscreenVao != 0)
+    {
+        gl->glDeleteVertexArrays(1, &m_oitFullscreenVao);
+        m_oitFullscreenVao = 0;
+    }
+
+    m_weightedOITCompositeProgram.release(gl);
+    m_weightedOITProgram.release(gl);
     m_vertexColorProgram.release(gl);
     m_solidColorProgram.release(gl);
     m_textureProgram.release(gl);
@@ -352,6 +612,8 @@ void Renderer::release()
 
     m_initialized = false;
     m_frameActive = false;
+    m_oitStage = WeightedOITStage::None;
+    m_oitTargetFramebuffer = 0;
     m_lightLimitWarningIssued = false;
 }
 
@@ -420,6 +682,9 @@ void Renderer::endFrame()
     if (!m_frameActive)
         return;
 
+    if (weightedOITActive())
+        cancelWeightedOIT();
+
     QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
 
     if (gl == 0)
@@ -440,6 +705,256 @@ void Renderer::endFrame()
     ShaderProgram::unbind(gl);
 
     m_frameActive = false;
+}
+
+/// Weighted Blended OIT
+
+bool Renderer::weightedOITActive() const
+{
+    return m_oitStage != WeightedOITStage::None;
+}
+
+bool Renderer::ensureWeightedOITResources(int width, int height)
+{
+    if (width <= 0 || height <= 0) return false;
+
+    if (m_oitFramebuffer != 0 && m_oitAccumTexture != 0 && m_oitRevealTexture != 0 &&
+        m_oitDepthStencilBuffer != 0 && m_oitWidth == width && m_oitHeight == height)
+    {
+        return true;
+    }
+
+    releaseWeightedOITResources();
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext != 0 ? m_openGLContext->gl() : 0;
+    if (gl == 0) return false;
+
+    GLint previousFramebuffer = 0;
+    gl->glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
+
+    gl->glGenFramebuffers(1, &m_oitFramebuffer);
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, m_oitFramebuffer);
+
+    gl->glGenTextures(1, &m_oitAccumTexture);
+    gl->glBindTexture(GL_TEXTURE_2D, m_oitAccumTexture);
+    gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    gl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_oitAccumTexture, 0);
+
+    gl->glGenTextures(1, &m_oitRevealTexture);
+    gl->glBindTexture(GL_TEXTURE_2D, m_oitRevealTexture);
+    gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    gl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, m_oitRevealTexture, 0);
+
+    gl->glGenRenderbuffers(1, &m_oitDepthStencilBuffer);
+    gl->glBindRenderbuffer(GL_RENDERBUFFER, m_oitDepthStencilBuffer);
+    gl->glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    gl->glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_oitDepthStencilBuffer);
+
+    const GLenum status = gl->glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+    gl->glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    gl->glBindTexture(GL_TEXTURE_2D, 0);
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
+
+    if (status != GL_FRAMEBUFFER_COMPLETE)
+    {
+        qWarning() << "Renderer ensureWeightedOITResources failed: framebuffer is incomplete:"
+                   << static_cast<unsigned int>(status);
+        releaseWeightedOITResources();
+        return false;
+    }
+
+    m_oitWidth = width;
+    m_oitHeight = height;
+    return true;
+}
+
+void Renderer::releaseWeightedOITResources()
+{
+    if (m_openGLContext == 0) return;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return;
+
+    if (m_oitDepthStencilBuffer != 0)
+    {
+        gl->glDeleteRenderbuffers(1, &m_oitDepthStencilBuffer);
+        m_oitDepthStencilBuffer = 0;
+    }
+
+    if (m_oitRevealTexture != 0)
+    {
+        gl->glDeleteTextures(1, &m_oitRevealTexture);
+        m_oitRevealTexture = 0;
+    }
+
+    if (m_oitAccumTexture != 0)
+    {
+        gl->glDeleteTextures(1, &m_oitAccumTexture);
+        m_oitAccumTexture = 0;
+    }
+
+    if (m_oitFramebuffer != 0)
+    {
+        gl->glDeleteFramebuffers(1, &m_oitFramebuffer);
+        m_oitFramebuffer = 0;
+    }
+
+    m_oitWidth = 0;
+    m_oitHeight = 0;
+}
+
+bool Renderer::beginWeightedOIT(const RenderContext& context)
+{
+    if (!m_frameActive || !context.isValid() || weightedOITActive()) return false;
+    if (!ensureWeightedOITResources(context.viewportWidth, context.viewportHeight)) return false;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return false;
+
+    GLint targetFramebuffer = 0;
+    gl->glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &targetFramebuffer);
+
+    m_oitTargetFramebuffer = targetFramebuffer;
+
+    gl->glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(m_oitTargetFramebuffer));
+    gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_oitFramebuffer);
+    gl->glBlitFramebuffer(0, 0, context.viewportWidth, context.viewportHeight,
+                          0, 0, context.viewportWidth, context.viewportHeight,
+                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, m_oitFramebuffer);
+    gl->glViewport(0, 0, context.viewportWidth, context.viewportHeight);
+
+    gl->glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    gl->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    gl->glClear(GL_COLOR_BUFFER_BIT);
+
+    gl->glDrawBuffer(GL_COLOR_ATTACHMENT1);
+    gl->glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    gl->glClear(GL_COLOR_BUFFER_BIT);
+
+    gl->glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    gl->glClearColor(m_clearColor.x(), m_clearColor.y(), m_clearColor.z(), m_clearColor.w());
+
+    m_oitStage = WeightedOITStage::Prepared;
+    return true;
+}
+
+bool Renderer::beginWeightedOITAccumulation()
+{
+    if (m_oitStage != WeightedOITStage::Prepared) return false;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return false;
+
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, m_oitFramebuffer);
+    gl->glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    gl->glEnable(GL_DEPTH_TEST);
+    gl->glDepthFunc(GL_LESS);
+    gl->glDepthMask(GL_FALSE);
+    gl->glEnable(GL_BLEND);
+    gl->glBlendEquation(GL_FUNC_ADD);
+    gl->glBlendFunc(GL_ONE, GL_ONE);
+
+    m_oitStage = WeightedOITStage::Accumulation;
+    return true;
+}
+
+bool Renderer::beginWeightedOITRevealage()
+{
+    if (m_oitStage != WeightedOITStage::Accumulation) return false;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return false;
+
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, m_oitFramebuffer);
+    gl->glDrawBuffer(GL_COLOR_ATTACHMENT1);
+    gl->glEnable(GL_DEPTH_TEST);
+    gl->glDepthFunc(GL_LESS);
+    gl->glDepthMask(GL_FALSE);
+    gl->glEnable(GL_BLEND);
+    gl->glBlendEquation(GL_FUNC_ADD);
+    gl->glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_oitStage = WeightedOITStage::Revealage;
+    return true;
+}
+
+bool Renderer::compositeWeightedOIT()
+{
+    if (m_oitStage != WeightedOITStage::Revealage) return false;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return false;
+
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(m_oitTargetFramebuffer));
+    gl->glViewport(0, 0, m_oitWidth, m_oitHeight);
+
+    gl->glDisable(GL_DEPTH_TEST);
+    gl->glDepthMask(GL_FALSE);
+    gl->glEnable(GL_BLEND);
+    gl->glBlendEquation(GL_FUNC_ADD);
+    gl->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_weightedOITCompositeProgram.bind(gl);
+
+    gl->glActiveTexture(GL_TEXTURE0);
+    gl->glBindTexture(GL_TEXTURE_2D, m_oitAccumTexture);
+    gl->glUniform1i(m_oitCompositeAccumLocation, 0);
+
+    gl->glActiveTexture(GL_TEXTURE1);
+    gl->glBindTexture(GL_TEXTURE_2D, m_oitRevealTexture);
+    gl->glUniform1i(m_oitCompositeRevealLocation, 1);
+
+    gl->glBindVertexArray(m_oitFullscreenVao);
+    gl->glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    gl->glBindVertexArray(0);
+    gl->glActiveTexture(GL_TEXTURE1);
+    gl->glBindTexture(GL_TEXTURE_2D, 0);
+    gl->glActiveTexture(GL_TEXTURE0);
+    gl->glBindTexture(GL_TEXTURE_2D, 0);
+
+    gl->glDisable(GL_BLEND);
+    gl->glDepthMask(GL_TRUE);
+    gl->glEnable(GL_DEPTH_TEST);
+    gl->glDepthFunc(GL_LESS);
+    gl->glClearColor(m_clearColor.x(), m_clearColor.y(), m_clearColor.z(), m_clearColor.w());
+
+    ShaderProgram::unbind(gl);
+
+    m_oitStage = WeightedOITStage::None;
+    m_oitTargetFramebuffer = 0;
+    return true;
+}
+
+void Renderer::cancelWeightedOIT()
+{
+    if (!weightedOITActive() || m_openGLContext == 0) return;
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0) return;
+
+    gl->glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(m_oitTargetFramebuffer));
+    gl->glViewport(0, 0, m_renderContext.viewportWidth, m_renderContext.viewportHeight);
+    gl->glDisable(GL_BLEND);
+    gl->glDepthMask(GL_TRUE);
+    gl->glEnable(GL_DEPTH_TEST);
+    gl->glDepthFunc(GL_LESS);
+    gl->glClearColor(m_clearColor.x(), m_clearColor.y(), m_clearColor.z(), m_clearColor.w());
+    ShaderProgram::unbind(gl);
+
+    m_oitStage = WeightedOITStage::None;
+    m_oitTargetFramebuffer = 0;
 }
 
 /// Geometry Draw
@@ -522,6 +1037,9 @@ bool Renderer::drawGeometryStates(const Geometry* geometry,
         return false;
     }
 
+    if (m_oitStage == WeightedOITStage::Accumulation || m_oitStage == WeightedOITStage::Revealage)
+        return drawWeightedOITGeometry(geometry, material, states, stateCount, lights);
+
     /// 无光照材质。
     if (!material->lightingEnabled())
     {
@@ -553,6 +1071,266 @@ bool Renderer::drawGeometryStates(const Geometry* geometry,
     }
 
     return drawLitGeometry(geometry, material, states, stateCount, lights);
+}
+
+/// Weighted Blended OIT Draw
+
+bool Renderer::drawWeightedOITGeometry(const Geometry* geometry,
+                                       const Material* material,
+                                       const RenderState* states,
+                                       std::size_t stateCount,
+                                       const std::vector<const Light*>& lights)
+{
+    if (geometry == 0 || material == 0 || states == 0 || stateCount == 0) return false;
+    if (m_oitStage != WeightedOITStage::Accumulation && m_oitStage != WeightedOITStage::Revealage) return false;
+
+    if (!geometry->isInitialized() || geometry->vao() == 0 || geometry->indexCount() <= 0)
+        return false;
+
+    if (!geometry->hasAttribute(GeometryAttribute::Position, 3))
+        return false;
+
+    const SurfaceMode surfaceMode = material->surfaceMode();
+
+    if (surfaceMode == SurfaceMode::VertexColor && !geometry->hasAttribute(GeometryAttribute::Color, 3))
+        return false;
+
+    if (surfaceMode == SurfaceMode::Texture && !geometry->hasAttribute(GeometryAttribute::TexCoord, 2))
+        return false;
+
+    if (material->lightingEnabled())
+    {
+        if (surfaceMode == SurfaceMode::Texture || !geometry->hasAttribute(GeometryAttribute::Normal, 3))
+            return false;
+    }
+
+    const Texture* texture = material->texture();
+
+    if (surfaceMode == SurfaceMode::Texture)
+    {
+        if (texture == 0 || !texture->isInitialized() || texture->textureId() == 0)
+            return false;
+    }
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0 || !geometry->prepareDrawGL(gl)) return false;
+
+    QVector3D ambientLight(0.0f, 0.0f, 0.0f);
+
+    GLint lightTypes[MaxLights] = { 0 };
+    GLfloat lightPositions[MaxLights * 3] = { 0.0f };
+    GLfloat lightDirections[MaxLights * 3] = { 0.0f };
+    GLfloat lightColors[MaxLights * 3] = { 0.0f };
+    GLfloat lightIntensities[MaxLights] = { 0.0f };
+    GLfloat lightRanges[MaxLights] = { 1.0f };
+    GLfloat lightInnerConeCos[MaxLights] = { 1.0f };
+    GLfloat lightOuterConeCos[MaxLights] = { 1.0f };
+
+    const float degreesToRadians = 0.017453292519943295f;
+    int lightCount = 0;
+
+    if (material->lightingEnabled())
+    {
+        for (std::size_t i = 0; i < lights.size(); ++i)
+        {
+            const Light* light = lights[i];
+            if (light == 0) continue;
+
+            if (light->lightType() == LightType::Ambient)
+            {
+                ambientLight += light->color() * light->intensity();
+                continue;
+            }
+
+            if (lightCount >= MaxLights) continue;
+
+            GLint shaderLightType = 0;
+
+            switch (light->lightType())
+            {
+            case LightType::Directional:
+                shaderLightType = 0;
+                break;
+
+            case LightType::Point:
+                shaderLightType = 1;
+                break;
+
+            case LightType::Spot:
+                shaderLightType = 2;
+                break;
+
+            case LightType::Ambient:
+                continue;
+            }
+
+            const int offset = lightCount * 3;
+            const QVector3D& position = light->position();
+            const QVector3D& direction = light->direction();
+            const QVector3D& color = light->color();
+
+            lightTypes[lightCount] = shaderLightType;
+            lightPositions[offset + 0] = position.x();
+            lightPositions[offset + 1] = position.y();
+            lightPositions[offset + 2] = position.z();
+            lightDirections[offset + 0] = direction.x();
+            lightDirections[offset + 1] = direction.y();
+            lightDirections[offset + 2] = direction.z();
+            lightColors[offset + 0] = color.x();
+            lightColors[offset + 1] = color.y();
+            lightColors[offset + 2] = color.z();
+            lightIntensities[lightCount] = light->intensity();
+            lightRanges[lightCount] = light->range();
+            lightInnerConeCos[lightCount] = qCos(light->innerConeAngle() * degreesToRadians);
+            lightOuterConeCos[lightCount] = qCos(light->outerConeAngle() * degreesToRadians);
+
+            ++lightCount;
+        }
+    }
+
+    m_weightedOITProgram.bind(gl);
+
+    const QVector4D& baseColor = material->color();
+
+    gl->glUniform1i(m_oitSurfaceModeLocation, static_cast<int>(surfaceMode));
+    gl->glUniform1i(m_oitLightingEnabledLocation, material->lightingEnabled() ? 1 : 0);
+    gl->glUniform4f(m_oitBaseColorLocation, baseColor.x(), baseColor.y(), baseColor.z(), baseColor.w());
+    gl->glUniform1i(m_oitPassLocation, m_oitStage == WeightedOITStage::Revealage ? 1 : 0);
+    gl->glUniform3f(m_oitAmbientLightLocation, ambientLight.x(), ambientLight.y(), ambientLight.z());
+    gl->glUniform1i(m_oitLightCountLocation, lightCount);
+
+    if (lightCount > 0)
+    {
+        gl->glUniform1iv(m_oitLightTypeLocation, lightCount, lightTypes);
+        gl->glUniform3fv(m_oitLightPositionLocation, lightCount, lightPositions);
+        gl->glUniform3fv(m_oitLightDirectionLocation, lightCount, lightDirections);
+        gl->glUniform3fv(m_oitLightColorLocation, lightCount, lightColors);
+        gl->glUniform1fv(m_oitLightIntensityLocation, lightCount, lightIntensities);
+        gl->glUniform1fv(m_oitLightRangeLocation, lightCount, lightRanges);
+        gl->glUniform1fv(m_oitLightInnerConeCosLocation, lightCount, lightInnerConeCos);
+        gl->glUniform1fv(m_oitLightOuterConeCosLocation, lightCount, lightOuterConeCos);
+    }
+
+    if (surfaceMode == SurfaceMode::Texture)
+    {
+        gl->glActiveTexture(GL_TEXTURE0);
+        gl->glBindTexture(GL_TEXTURE_2D, texture->textureId());
+        gl->glUniform1i(m_oitTextureSamplerLocation, 0);
+    }
+
+    gl->glBindVertexArray(geometry->vao());
+
+    const bool lineGeometry = geometry->renderType() == RenderType::Lines || geometry->renderType() == RenderType::LineStrip;
+    if (lineGeometry) gl->glLineWidth(states->m_lineWidth);
+
+    bool result = true;
+
+    for (std::size_t i = 0; i < stateCount; ++i)
+    {
+        const RenderState& state = states[i];
+
+        if (!applyRenderState(state))
+        {
+            result = false;
+            break;
+        }
+
+        const QMatrix3x3 normalMatrix = state.model.normalMatrix();
+
+        gl->glUniformMatrix4fv(m_oitModelLocation, 1, GL_FALSE, state.model.constData());
+        gl->glUniformMatrix4fv(m_oitViewLocation, 1, GL_FALSE, state.view.constData());
+        gl->glUniformMatrix4fv(m_oitProjectionLocation, 1, GL_FALSE, state.projection.constData());
+        gl->glUniformMatrix3fv(m_oitNormalLocation, 1, GL_FALSE, normalMatrix.constData());
+
+        gl->glDrawElements(primitiveMode(geometry), geometry->indexCount(), geometry->indexType(), 0);
+    }
+
+    if (lineGeometry) gl->glLineWidth(1.0f);
+
+    gl->glBindVertexArray(0);
+
+    if (surfaceMode == SurfaceMode::Texture)
+    {
+        gl->glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    geometry->finishDrawGL(gl);
+    return result;
+}
+
+bool Renderer::drawWeightedOITWireGeometry(const Geometry* geometry,
+                                           const QVector4D& color,
+                                           const RenderState* states,
+                                           std::size_t stateCount,
+                                           bool overlay)
+{
+    if (geometry == 0 || states == 0 || stateCount == 0) return false;
+    if (m_oitStage != WeightedOITStage::Accumulation && m_oitStage != WeightedOITStage::Revealage) return false;
+    if (geometry->renderType() != RenderType::Triangles || !geometry->isInitialized() || geometry->vao() == 0 ||
+        geometry->indexCount() <= 0 || !geometry->hasAttribute(GeometryAttribute::Position, 3))
+    {
+        return false;
+    }
+
+    QOpenGLFunctions_3_3_Core* gl = m_openGLContext->gl();
+    if (gl == 0 || !geometry->prepareDrawGL(gl)) return false;
+
+    m_weightedOITProgram.bind(gl);
+
+    gl->glUniform1i(m_oitSurfaceModeLocation, static_cast<int>(SurfaceMode::Color));
+    gl->glUniform1i(m_oitLightingEnabledLocation, 0);
+    gl->glUniform4f(m_oitBaseColorLocation, color.x(), color.y(), color.z(), color.w());
+    gl->glUniform1i(m_oitPassLocation, m_oitStage == WeightedOITStage::Revealage ? 1 : 0);
+    gl->glUniform3f(m_oitAmbientLightLocation, 0.0f, 0.0f, 0.0f);
+    gl->glUniform1i(m_oitLightCountLocation, 0);
+
+    gl->glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    gl->glBindVertexArray(geometry->vao());
+
+    bool result = true;
+
+    for (std::size_t i = 0; i < stateCount; ++i)
+    {
+        const RenderState& state = states[i];
+
+        if (!applyRenderState(state))
+        {
+            result = false;
+            break;
+        }
+
+        const bool useOverlayDepth = overlay && state.depthTestEnabled;
+
+        if (useOverlayDepth)
+        {
+            gl->glDepthFunc(GL_LEQUAL);
+            gl->glEnable(GL_POLYGON_OFFSET_LINE);
+            gl->glPolygonOffset(-1.0f, -1.0f);
+        }
+
+        const QMatrix3x3 normalMatrix = state.model.normalMatrix();
+
+        gl->glUniformMatrix4fv(m_oitModelLocation, 1, GL_FALSE, state.model.constData());
+        gl->glUniformMatrix4fv(m_oitViewLocation, 1, GL_FALSE, state.view.constData());
+        gl->glUniformMatrix4fv(m_oitProjectionLocation, 1, GL_FALSE, state.projection.constData());
+        gl->glUniformMatrix3fv(m_oitNormalLocation, 1, GL_FALSE, normalMatrix.constData());
+
+        gl->glDrawElements(GL_TRIANGLES, geometry->indexCount(), geometry->indexType(), 0);
+
+        if (useOverlayDepth)
+        {
+            gl->glDisable(GL_POLYGON_OFFSET_LINE);
+            gl->glDepthFunc(GL_LESS);
+        }
+    }
+
+    gl->glBindVertexArray(0);
+    gl->glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    gl->glDisable(GL_POLYGON_OFFSET_LINE);
+    gl->glDepthFunc(GL_LESS);
+
+    geometry->finishDrawGL(gl);
+    return result;
 }
 
 /// Color
@@ -1127,6 +1905,9 @@ bool Renderer::drawWireGeometryStates(const Geometry* geometry,
         return false;
     }
 
+    if (m_oitStage == WeightedOITStage::Accumulation || m_oitStage == WeightedOITStage::Revealage)
+        return drawWeightedOITWireGeometry(geometry, color, states, stateCount, overlay);
+
     if (geometry->renderType() != RenderType::Triangles)
     {
         qWarning() << "Renderer drawWireGeometry failed: Triangle Geometry is required:"
@@ -1253,15 +2034,25 @@ bool Renderer::applyRenderState(const RenderState& state)
     else
         gl->glDisable(GL_DEPTH_TEST);
 
-    gl->glDepthMask(state.depthWriteEnabled ? GL_TRUE : GL_FALSE);
+    const bool oitPass =
+        m_oitStage == WeightedOITStage::Accumulation ||
+        m_oitStage == WeightedOITStage::Revealage;
+
+    gl->glDepthMask(oitPass ? GL_FALSE : (state.depthWriteEnabled ? GL_TRUE : GL_FALSE));
 
     /// 普通 Geometry Draw 固定使用 GL_LESS。
     /// Wire Overlay 会在自己的 Draw Scope 内临时切换为 GL_LEQUAL。
     gl->glDepthFunc(GL_LESS);
 
-    if (state.blendEnabled)
+    if (oitPass)
+    {
+        /// OIT Pass 的 Blend Func 由 beginWeightedOITAccumulation()/Revealage() 统一设置。
+        gl->glEnable(GL_BLEND);
+    }
+    else if (state.blendEnabled)
     {
         gl->glEnable(GL_BLEND);
+        gl->glBlendEquation(GL_FUNC_ADD);
         gl->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
     else

@@ -35,7 +35,7 @@ bool resolvePartState(bool itemState, RenderPartStateMode mode)
     return itemState;
 }
 
-//获取1像素在锚点处对应的世界单位
+// 获取1像素在锚点处对应的世界单位。
 bool calculateWorldUnitsPerPixel(const RenderContext& context,
                                  const QVector3D& worldAnchor,
                                  const QVector3D& cameraRight,
@@ -43,35 +43,27 @@ bool calculateWorldUnitsPerPixel(const RenderContext& context,
                                  float& worldPerPixelX,
                                  float& worldPerPixelY)
 {
-    const QVector4D anchorClip =context.projection *context.view *QVector4D(worldAnchor, 1.0f);//获取锚点在裁剪空间的位置
-    const QVector4D xClip =context.projection *context.view *QVector4D(worldAnchor + cameraRight, 1.0f);//获取锚点向相机X方向平移一单位后的点
-    const QVector4D yClip =context.projection *context.view *QVector4D(worldAnchor + cameraUp, 1.0f);//获取锚点向相机Y方向平移一单位后的点
+    const QVector4D anchorClip = context.projection * context.view * QVector4D(worldAnchor, 1.0f);
+    const QVector4D xClip = context.projection * context.view * QVector4D(worldAnchor + cameraRight, 1.0f);
+    const QVector4D yClip = context.projection * context.view * QVector4D(worldAnchor + cameraUp, 1.0f);
 
-    if (anchorClip.w() <= 1.0e-8f ||xClip.w() <= 1.0e-8f ||yClip.w() <= 1.0e-8f)
-    {
-        return false;
-    }
-    //获取锚点在屏幕的坐标
-    const float anchorPixelX =(anchorClip.x() / anchorClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportWidth);
-    const float anchorPixelY =(anchorClip.y() / anchorClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportHeight);
-    //获取锚点向相机X方向平移一单位后再屏幕的坐标
-    const float xPixelX =(xClip.x() / xClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportWidth);
-    const float xPixelY =(xClip.y() / xClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportHeight);
-    //获取锚点向相机Y方向平移一单位后再屏幕的坐标
-    const float yPixelX =(yClip.x() / yClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportWidth);
-    const float yPixelY =(yClip.y() / yClip.w() * 0.5f + 0.5f) *static_cast<float>(context.viewportHeight);
-    //获取X，Y轴方向1世界单位对应的像素偏移向量
-    const QVector2D xPixelVector(xPixelX - anchorPixelX,xPixelY - anchorPixelY);
-    const QVector2D yPixelVector(yPixelX - anchorPixelX,yPixelY - anchorPixelY);
-    //获取X，Y轴方向1世界单位对应的像素数量
+    if (anchorClip.w() <= 1.0e-8f || xClip.w() <= 1.0e-8f || yClip.w() <= 1.0e-8f) return false;
+
+    const float anchorPixelX = (anchorClip.x() / anchorClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportWidth);
+    const float anchorPixelY = (anchorClip.y() / anchorClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportHeight);
+    const float xPixelX = (xClip.x() / xClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportWidth);
+    const float xPixelY = (xClip.y() / xClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportHeight);
+    const float yPixelX = (yClip.x() / yClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportWidth);
+    const float yPixelY = (yClip.y() / yClip.w() * 0.5f + 0.5f) * static_cast<float>(context.viewportHeight);
+
+    const QVector2D xPixelVector(xPixelX - anchorPixelX, xPixelY - anchorPixelY);
+    const QVector2D yPixelVector(yPixelX - anchorPixelX, yPixelY - anchorPixelY);
+
     const float pixelsPerWorldX = xPixelVector.length();
     const float pixelsPerWorldY = yPixelVector.length();
 
-    if (pixelsPerWorldX <= 1.0e-8f ||pixelsPerWorldY <= 1.0e-8f)
-    {
-        return false;
-    }
-    //取倒数，获取1像素对应的世界单位
+    if (pixelsPerWorldX <= 1.0e-8f || pixelsPerWorldY <= 1.0e-8f) return false;
+
     worldPerPixelX = 1.0f / pixelsPerWorldX;
     worldPerPixelY = 1.0f / pixelsPerWorldY;
 
@@ -98,26 +90,48 @@ RenderPartId RenderPart::id() const
 
 /// Render
 
+bool RenderPart::isTransparent(const RenderItem& item) const
+{
+    if (m_geometry == 0) return false;
+
+    // Triangle Wireframe 不使用 Material，而是使用 Item edgeColor。
+    if (isStandardModel() && m_geometry->renderType() == RenderType::Triangles &&
+        item.displayMode() == DisplayMode::Wireframe)
+    {
+        return item.edgeColor().w() < 1.0f;
+    }
+
+    const Material* finalMaterial = m_material != 0 ? m_material : item.material();
+    return finalMaterial != 0 && finalMaterial->isTransparent();
+}
+
 bool RenderPart::draw(Renderer& renderer,
                       const RenderItem& item,
                       const RenderContext& context,
                       const std::vector<const Light*>& lights) const
 {
+    if (m_geometry == 0) return true;
+    if (!context.isValid()) return false;
 
-    if (m_geometry == 0)return true;
-    if (!context.isValid())return false;
     RenderState state;
-    if (!buildRenderState(item, context, m_anchor3D,m_anchor2D, m_anchorPixel, state))
-    {
-        return true;
-    }
-    const Material* finalMaterial = m_material;
-    if (finalMaterial == 0)finalMaterial = item.material();
+
+    if (!buildRenderState(item, context, m_anchor3D, m_anchor2D, m_anchorPixel, state)) return true;
+
+    const Material* finalMaterial = m_material != 0 ? m_material : item.material();
+    const bool transparent = isTransparent(item);
+
+    state.blendEnabled = transparent;
+
+    // Alpha 混合仍参与 Depth Test，但不写入 Depth Buffer。
+    // 这是透明 Surface 的最终约束，高于 Item / Part 的 Depth Write 配置。
+    if (transparent) state.depthWriteEnabled = false;
+
     bool drawSucceeded = false;
-    if (!isStandardModel() ||m_geometry->renderType() != RenderType::Triangles)
+
+    if (!isStandardModel() || m_geometry->renderType() != RenderType::Triangles)
     {
-        if (finalMaterial == 0)return false;
-        drawSucceeded = renderer.drawGeometry(m_geometry,finalMaterial,state,lights);
+        if (finalMaterial == 0) return false;
+        drawSucceeded = renderer.drawGeometry(m_geometry, finalMaterial, state, lights);
     }
     else
     {
@@ -125,30 +139,36 @@ bool RenderPart::draw(Renderer& renderer,
         {
         case DisplayMode::Shaded:
         {
-            if (finalMaterial == 0)return false;
-            drawSucceeded = renderer.drawGeometry(m_geometry,finalMaterial,state,lights);
+            if (finalMaterial == 0) return false;
+            drawSucceeded = renderer.drawGeometry(m_geometry, finalMaterial, state, lights);
             break;
         }
+
         case DisplayMode::Wireframe:
         {
-            drawSucceeded = renderer.drawWireGeometry(m_geometry,item.edgeColor(),state,false);
+            drawSucceeded = renderer.drawWireGeometry(m_geometry, item.edgeColor(), state, false);
             break;
         }
+
         case DisplayMode::ShadedWithEdges:
         {
-            if (finalMaterial == 0)return false;
-            drawSucceeded = renderer.drawGeometry(m_geometry,finalMaterial,state,lights);
-            drawSucceeded = drawSucceeded&&renderer.drawWireGeometry(m_geometry,item.edgeColor(),state,true);
+            if (finalMaterial == 0) return false;
+
+            // ShadedWithEdges 当前作为一个绘制单元参与透明排序。
+            // 其透明属性由 Surface Material 决定，Surface 后继续叠加 Edge。
+            drawSucceeded = renderer.drawGeometry(m_geometry, finalMaterial, state, lights);
+            drawSucceeded = drawSucceeded && renderer.drawWireGeometry(m_geometry, item.edgeColor(), state, true);
             break;
         }
         }
     }
+
     if (!drawSucceeded)
     {
         qWarning() << "RenderPart draw failed:"
-                << "Item=" << item.name()
-                << "PartId=" << static_cast<qulonglong>(m_id)
-                << "Geometry=" << m_geometry->name();
+                   << "Item=" << item.name()
+                   << "PartId=" << static_cast<qulonglong>(m_id)
+                   << "Geometry=" << m_geometry->name();
 
         return false;
     }
@@ -156,19 +176,13 @@ bool RenderPart::draw(Renderer& renderer,
     return true;
 }
 
-
 /// RenderState
+
 bool RenderPart::buildRenderState(const RenderItem& item,
                                   const RenderContext& context,
                                   RenderState& state) const
 {
-    return buildRenderState(
-        item,
-        context,
-        m_anchor3D,
-        m_anchor2D,
-        m_anchorPixel,
-        state);
+    return buildRenderState(item, context, m_anchor3D, m_anchor2D, m_anchorPixel, state);
 }
 
 bool RenderPart::buildRenderState(const RenderItem& item,
@@ -178,69 +192,75 @@ bool RenderPart::buildRenderState(const RenderItem& item,
                                   const QPointF& anchorPixel,
                                   RenderState& state) const
 {
-    if (!context.isValid())return false;
+    if (!context.isValid()) return false;
+
     const QMatrix4x4 itemModel = item.transform().matrix();
-    const QVector3D cameraForward =context.cameraForward.normalized();
-    const QVector3D cameraUp =context.cameraUp.normalized();
-    const QVector3D sceneRight =QVector3D::crossProduct(cameraForward,cameraUp).normalized();
+    const QVector3D cameraForward = context.cameraForward.normalized();
+    const QVector3D cameraUp = context.cameraUp.normalized();
+    const QVector3D sceneRight = QVector3D::crossProduct(cameraForward, cameraUp).normalized();
 
-    if (sceneRight.lengthSquared() <= 1.0e-12f)return false;
+    if (sceneRight.lengthSquared() <= 1.0e-12f) return false;
 
-    const QVector3D sceneUp =QVector3D::crossProduct(sceneRight,cameraForward).normalized();
-    const QVector3D sceneBack =QVector3D::crossProduct(sceneRight,sceneUp).normalized();
+    const QVector3D sceneUp = QVector3D::crossProduct(sceneRight, cameraForward).normalized();
+    const QVector3D sceneBack = QVector3D::crossProduct(sceneRight, sceneUp).normalized();
 
     /// 叠加三维锚点
-    QVector3D worldAnchor =(itemModel *QVector4D(anchor3D, 1.0f)).toVector3D();
+
+    QVector3D worldAnchor = (itemModel * QVector4D(anchor3D, 1.0f)).toVector3D();
 
     /// 叠加二维锚点
+
     worldAnchor += sceneRight * anchor2D.x();
     worldAnchor += sceneUp * anchor2D.y();
 
-    //叠加像素锚点
+    /// 叠加像素锚点
+
     float worldPerPixelX = 0.0f;
     float worldPerPixelY = 0.0f;
-    const bool hasPixelOffset =qAbs(anchorPixel.x()) > 1.0e-8 ||qAbs(anchorPixel.y()) > 1.0e-8;
-    const bool needPixelScale =m_pixelScale ||hasPixelOffset;
+
+    const bool hasPixelOffset = qAbs(anchorPixel.x()) > 1.0e-8 || qAbs(anchorPixel.y()) > 1.0e-8;
+    const bool needPixelScale = m_pixelScale || hasPixelOffset;
+
     if (needPixelScale)
     {
-        if (!calculateWorldUnitsPerPixel(context,worldAnchor,sceneRight,sceneUp,worldPerPixelX,worldPerPixelY))
-        {
+        if (!calculateWorldUnitsPerPixel(context, worldAnchor, sceneRight, sceneUp, worldPerPixelX, worldPerPixelY))
             return false;
-        }
     }
 
     if (hasPixelOffset)
     {
-        worldAnchor +=sceneRight *static_cast<float>(anchorPixel.x()) *worldPerPixelX;
-        worldAnchor -=sceneUp *static_cast<float>(anchorPixel.y()) *worldPerPixelY;
+        worldAnchor += sceneRight * static_cast<float>(anchorPixel.x()) * worldPerPixelX;
+        worldAnchor -= sceneUp * static_cast<float>(anchorPixel.y()) * worldPerPixelY;
     }
 
     state = RenderState();
     state.view = context.view;
     state.projection = context.projection;
-    state.viewport = RenderViewport(0,0,context.viewportWidth,context.viewportHeight);
+    state.viewport = RenderViewport(0, 0, context.viewportWidth, context.viewportHeight);
+    state.m_lineWidth = m_lineWidth;
 
-    state.depthTestEnabled =resolvePartState(item.depthTestEnabled(),m_depthTestMode);
-    state.depthWriteEnabled =resolvePartState(item.depthWriteEnabled(),m_depthWriteMode);
-    state.m_lineWidth =this->lineWidth();
+    state.depthTestEnabled = resolvePartState(item.depthTestEnabled(), m_depthTestMode);
+    state.depthWriteEnabled = resolvePartState(item.depthWriteEnabled(), m_depthWriteMode);
     state.blendEnabled = false;
 
-    /// 标准模型。
-    if (!m_followCamera &&!m_pixelScale)
+    /// 标准模型
+
+    if (!m_followCamera && !m_pixelScale)
     {
         state.model = itemModel;
-        state.model.setColumn(3,QVector4D(worldAnchor,1.0f));
+        state.model.setColumn(3, QVector4D(worldAnchor, 1.0f));
         return true;
     }
-    const QVector3D itemXAxis =itemModel.column(0).toVector3D();
-    const QVector3D itemYAxis =itemModel.column(1).toVector3D();
-    const QVector3D itemZAxis =itemModel.column(2).toVector3D();
+
+    const QVector3D itemXAxis = itemModel.column(0).toVector3D();
+    const QVector3D itemYAxis = itemModel.column(1).toVector3D();
+    const QVector3D itemZAxis = itemModel.column(2).toVector3D();
 
     const float scaleX = itemXAxis.length();
     const float scaleY = itemYAxis.length();
     const float scaleZ = itemZAxis.length();
 
-    if (scaleX <= 1.0e-8f ||scaleY <= 1.0e-8f ||scaleZ <= 1.0e-8f)
+    if (scaleX <= 1.0e-8f || scaleY <= 1.0e-8f || scaleZ <= 1.0e-8f)
     {
         qWarning() << "RenderPart buildRenderState failed:"
                    << "Item transform contains zero scale:"
@@ -265,24 +285,29 @@ bool RenderPart::buildRenderState(const RenderItem& item,
         axisY = itemYAxis / scaleY;
         axisZ = itemZAxis / scaleZ;
     }
+
     float baseScale = 1.0f;
+
     if (m_pixelScale)
     {
         /// X / Y Pixel 对应的 World Scale 取平均值，
         /// 避免 Viewport 非等比例情况下产生明显单轴偏差。
-        baseScale =(worldPerPixelX +worldPerPixelY) *0.5f;
+        baseScale = (worldPerPixelX + worldPerPixelY) * 0.5f;
     }
-    const QVector3D modelXAxis =axisX *scaleX *baseScale;
-    const QVector3D modelYAxis =axisY *scaleY *baseScale;
-    const QVector3D modelZAxis =axisZ *scaleZ *baseScale;
+
+    const QVector3D modelXAxis = axisX * scaleX * baseScale;
+    const QVector3D modelYAxis = axisY * scaleY * baseScale;
+    const QVector3D modelZAxis = axisZ * scaleZ * baseScale;
 
     state.model.setToIdentity();
-    state.model.setColumn(0,QVector4D(modelXAxis,0.0f));
-    state.model.setColumn(1,QVector4D(modelYAxis,0.0f));
-    state.model.setColumn(2,QVector4D(modelZAxis,0.0f));
-    state.model.setColumn(3,QVector4D(worldAnchor,1.0f));
+    state.model.setColumn(0, QVector4D(modelXAxis, 0.0f));
+    state.model.setColumn(1, QVector4D(modelYAxis, 0.0f));
+    state.model.setColumn(2, QVector4D(modelZAxis, 0.0f));
+    state.model.setColumn(3, QVector4D(worldAnchor, 1.0f));
+
     return true;
 }
+
 /// Bounds
 
 bool RenderPart::hasLocalBounds() const
@@ -309,20 +334,4 @@ void RenderPart::setLocalBounds(const AxisAlignedBoundingBox& bounds)
 void RenderPart::clearLocalBounds()
 {
     m_localBounds.reset();
-}
-
-float RenderPart::lineWidth() const
-{
-    return m_lineWidth;
-}
-
-bool RenderPart::setLineWidth(float width)
-{
-    if (width <= 0.0f)
-    {
-        return false;
-    }
-
-    m_lineWidth = width;
-    return true;
 }

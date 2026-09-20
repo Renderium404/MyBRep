@@ -8,7 +8,12 @@ namespace MyBRep
 Topology_Edge::Topology_Edge()
 {
 }
-
+Topology_Edge::Topology_Edge(const Topology_Object& object)
+    : Topology_Object(object.tObject(), object.orientation())
+{
+    MYBREP_ASSERT_MESSAGE(dynamic_cast<Topology_TEdge*>(object.tObject().get()) != 0,
+                          "Topology_Object does not contain Topology_TEdge.");
+}
 Topology_Edge::Topology_Edge(const Topology_Vertex& startVertex,
                              const Topology_Vertex& endVertex,
                              const Foundation::RefPtr<const Geometry_Curve>& geometry,

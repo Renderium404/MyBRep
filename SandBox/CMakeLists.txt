@@ -1,13 +1,3 @@
-# ============================================================
-# SandBox
-#
-# 一个 cpp 文件对应一个独立可执行项目。
-#
-# 命名规则：
-#
-# my_brep_opengl_*  -> MyBRepOpenGL
-# my_brep_*         -> MyBRep
-# ============================================================
 
 file(GLOB SANDBOX_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"

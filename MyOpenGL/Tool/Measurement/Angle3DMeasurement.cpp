@@ -331,7 +331,7 @@ bool Angle3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
     if (firstDirection.lengthSquared() <= 1.0e-12f || endDirection.lengthSquared() <= 1.0e-12f)
         return false;
 
-    RenderItem* item = viewer->measurementItemManager().createItem("MeasurementAngle3DResult");
+    RenderItem* item = viewer->toolItemManager().createItem("MeasurementAngle3DResult");
 
     if (item == 0)
         return false;
@@ -354,7 +354,7 @@ bool Angle3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
 
     if (lineGeometry != 0 && viewer->resourceManager().adopt(lineGeometry) != InvalidResourceId)
     {
-        RenderPart* linePart = viewer->measurementItemManager().createPart();
+        RenderPart* linePart = viewer->toolItemManager().createPart();
         item->addPart(linePart);
         if (linePart != 0)
         {
@@ -376,7 +376,7 @@ bool Angle3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
 
     if (arcGeometry != 0 && viewer->resourceManager().adopt(arcGeometry) != InvalidResourceId)
     {
-        RenderPart* arcPart = viewer->measurementItemManager().createPart();
+        RenderPart* arcPart = viewer->toolItemManager().createPart();
         item->addPart(arcPart);
         if (arcPart != 0)
         {

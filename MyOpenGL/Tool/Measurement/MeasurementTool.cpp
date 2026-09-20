@@ -69,7 +69,7 @@ RenderLabel* MeasurementTool::createPersistentLabel(OpenGLViewerWidget* viewer, 
 
     const int textPixelSize = 16; // 测量标签默认字号。
 
-    RenderLabel* label = viewer->measurementItemManager().createTextLabel(viewer->resourceManager(), viewer->materialManager(), text, textPixelSize);
+    RenderLabel* label = viewer->toolItemManager().createTextLabel(viewer->resourceManager(), viewer->materialManager(), text, textPixelSize);
     item->addLabel(label);
     if (label == 0)
         return 0;
