@@ -112,7 +112,7 @@ bool validSideCount(int sideCount)
 }
 /// Line
 
-BufferGeometry* SimpleModeling::createLine(const QString& name, const QVector3D& start, const QVector3D& end, const QVector3D& color, float lineWidth)
+BufferGeometry* SimpleModeling::createLine(const QString& name, const QVector3D& start, const QVector3D& end, const QVector3D& color)
 {
     if ((end - start).lengthSquared() <= 1.0e-12f)
     {
@@ -120,11 +120,6 @@ BufferGeometry* SimpleModeling::createLine(const QString& name, const QVector3D&
         return 0;
     }
 
-    if (lineWidth <= 0.0f)
-    {
-        qWarning() << "SimpleModeling createLine failed: lineWidth must be greater than zero.";
-        return 0;
-    }
 
     BufferGeometry* geometry = new BufferGeometry(name, BufferUsage::Static, RenderType::Lines);
 
@@ -157,14 +152,13 @@ BufferGeometry* SimpleModeling::createLine(const QString& name, const QVector3D&
 
     geometry->setVertexData(vertices);
     geometry->setIndexData(indices);
-    geometry->setLineWidth(lineWidth);
 
     return geometry;
 }
 
 /// LineStrip
 
-BufferGeometry* SimpleModeling::createLineStrip(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color, float lineWidth)
+BufferGeometry* SimpleModeling::createLineStrip(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color)
 {
     if (points.size() < 2)
     {
@@ -172,11 +166,6 @@ BufferGeometry* SimpleModeling::createLineStrip(const QString& name, const std::
         return 0;
     }
 
-    if (lineWidth <= 0.0f)
-    {
-        qWarning() << "SimpleModeling createLineStrip failed: lineWidth must be greater than zero.";
-        return 0;
-    }
 
     BufferGeometry* geometry = new BufferGeometry(name, BufferUsage::Static, RenderType::LineStrip);
 
@@ -220,14 +209,13 @@ BufferGeometry* SimpleModeling::createLineStrip(const QString& name, const std::
 
     geometry->setVertexData(vertices);
     geometry->setIndexData(indices);
-    geometry->setLineWidth(lineWidth);
 
     return geometry;
 }
 
 /// Lines
 
-BufferGeometry* SimpleModeling::createLines(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color, float lineWidth)
+BufferGeometry* SimpleModeling::createLines(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color)
 {
     if (points.size() < 2 || points.size() % 2 != 0)
     {
@@ -235,11 +223,6 @@ BufferGeometry* SimpleModeling::createLines(const QString& name, const std::vect
         return 0;
     }
 
-    if (lineWidth <= 0.0f)
-    {
-        qWarning() << "SimpleModeling createLines failed: lineWidth must be greater than zero.";
-        return 0;
-    }
 
     BufferGeometry* geometry = new BufferGeometry(name, BufferUsage::Static, RenderType::Lines);
 
@@ -283,14 +266,13 @@ BufferGeometry* SimpleModeling::createLines(const QString& name, const std::vect
 
     geometry->setVertexData(vertices);
     geometry->setIndexData(indices);
-    geometry->setLineWidth(lineWidth);
 
     return geometry;
 }
 
-BufferGeometry* SimpleModeling::createArc(const QString& name, const QVector3D& center, const QVector3D& startDirection, const QVector3D& endDirection, float radius, const QVector3D& color, float lineWidth, int segments)
+BufferGeometry* SimpleModeling::createArc(const QString& name, const QVector3D& center, const QVector3D& startDirection, const QVector3D& endDirection, float radius, const QVector3D& color, int segments)
 {
-    if (startDirection.lengthSquared() <= 1.0e-12f || endDirection.lengthSquared() <= 1.0e-12f || radius <= 0.0f || lineWidth <= 0.0f || segments < 2)
+    if (startDirection.lengthSquared() <= 1.0e-12f || endDirection.lengthSquared() <= 1.0e-12f || radius <= 0.0f ||  segments < 2)
     {
         qWarning() << "SimpleModeling createArc failed: invalid parameters.";
         return 0;
@@ -336,7 +318,7 @@ BufferGeometry* SimpleModeling::createArc(const QString& name, const QVector3D& 
         points.push_back(center + direction * radius);
     }
 
-    return createLineStrip(name, points, color, lineWidth);
+    return createLineStrip(name, points, color);
 }
 /// Sphere
 

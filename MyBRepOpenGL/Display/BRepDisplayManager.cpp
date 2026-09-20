@@ -5,20 +5,25 @@ namespace MyBRep
 namespace Display
 {
 
-BRepPartBinding::BRepPartBinding()
+BRepTopologyBinding::BRepTopologyBinding()
     : topologyId(InvalidTopologyId)
     , resourceId(InvalidResourceId)
-    , partId(InvalidRenderPartId)
     , resourceType(BRepTopologyResourceType::Unknown)
 {
 }
 
-bool BRepPartBinding::isValid() const
+bool BRepTopologyBinding::isValid() const
 {
-    return topologyId != InvalidTopologyId &&
+    return topology &&
+           topologyId != InvalidTopologyId &&
+           topology->id() == topologyId &&
            resourceId != InvalidResourceId &&
-           partId != InvalidRenderPartId &&
            resourceType != BRepTopologyResourceType::Unknown;
+}
+
+bool BRepTopologyBinding::isTopologyUnused() const
+{
+    return topology && topology->referenceCount() == 1;
 }
 
 BRepDisplayManager::BRepDisplayManager()
@@ -29,10 +34,7 @@ BRepDisplayManager::BRepDisplayManager()
 
 bool BRepDisplayManager::bindInstance(InstanceId instanceId, RenderItemId itemId)
 {
-    if (instanceId == InvalidInstanceId || itemId == InvalidRenderItemId)
-    {
-        return false;
-    }
+    if (instanceId == InvalidInstanceId || itemId == InvalidRenderItemId) return false;
 
     ItemByInstanceMap::const_iterator instanceIterator = m_itemByInstance.find(instanceId);
 
@@ -56,11 +58,7 @@ bool BRepDisplayManager::bindInstance(InstanceId instanceId, RenderItemId itemId
 bool BRepDisplayManager::unbindInstance(InstanceId instanceId)
 {
     ItemByInstanceMap::iterator iterator = m_itemByInstance.find(instanceId);
-
-    if (iterator == m_itemByInstance.end())
-    {
-        return false;
-    }
+    if (iterator == m_itemByInstance.end()) return false;
 
     m_instanceByItem.erase(iterator->second);
     m_itemByInstance.erase(iterator);
@@ -94,64 +92,51 @@ std::size_t BRepDisplayManager::instanceCount() const
     return m_itemByInstance.size();
 }
 
-/// Topology <-> Resource / RenderPart
+/// Topology <-> Geometry Resource
 
-bool BRepDisplayManager::bindTopology(TopologyId topologyId, BRepTopologyResourceType resourceType,
-                                      ResourceId resourceId, RenderPartId partId)
+bool BRepDisplayManager::bindTopology(const Topology_Object& topology,
+                                      BRepTopologyResourceType resourceType,
+                                      ResourceId resourceId)
 {
-    if (topologyId == InvalidTopologyId || resourceType == BRepTopologyResourceType::Unknown ||
-        resourceId == InvalidResourceId || partId == InvalidRenderPartId)
+    if (!topology.isValid() ||
+        resourceType == BRepTopologyResourceType::Unknown ||
+        resourceId == InvalidResourceId)
     {
         return false;
     }
+
+    const TopologyId topologyId = topology.id();
 
     BindingByTopologyMap::const_iterator topologyIterator = m_bindingByTopology.find(topologyId);
 
     if (topologyIterator != m_bindingByTopology.end())
     {
-        const BRepPartBinding& existing = topologyIterator->second;
-        return existing.resourceId == resourceId &&
-               existing.partId == partId &&
-               existing.resourceType == resourceType;
+        const BRepTopologyBinding& existing = topologyIterator->second;
+        return existing.resourceId == resourceId &&existing.resourceType == resourceType;
     }
 
     TopologyByResourceMap::const_iterator resourceIterator = m_topologyByResource.find(resourceId);
 
-    if (resourceIterator != m_topologyByResource.end())
-    {
-        return resourceIterator->second == topologyId;
-    }
+    if (resourceIterator != m_topologyByResource.end()) return false;
 
-    TopologyByPartMap::const_iterator partIterator = m_topologyByPart.find(partId);
+    BRepTopologyBinding binding;
+    binding.topology = topology.tObject();
+    binding.topologyId = topologyId;
+    binding.resourceId = resourceId;
+    binding.resourceType = resourceType;
 
-    if (partIterator != m_topologyByPart.end())
-    {
-        return partIterator->second == topologyId;
-    }
-
-    BRepPartBinding record;
-    record.topologyId = topologyId;
-    record.resourceId = resourceId;
-    record.partId = partId;
-    record.resourceType = resourceType;
-
-    m_bindingByTopology[topologyId] = record;
+    m_bindingByTopology[topologyId] = binding;
     m_topologyByResource[resourceId] = topologyId;
-    m_topologyByPart[partId] = topologyId;
+
     return true;
 }
 
 bool BRepDisplayManager::unbindTopology(TopologyId topologyId)
 {
     BindingByTopologyMap::iterator iterator = m_bindingByTopology.find(topologyId);
-
-    if (iterator == m_bindingByTopology.end())
-    {
-        return false;
-    }
+    if (iterator == m_bindingByTopology.end()) return false;
 
     m_topologyByResource.erase(iterator->second.resourceId);
-    m_topologyByPart.erase(iterator->second.partId);
     m_bindingByTopology.erase(iterator);
     return true;
 }
@@ -166,41 +151,45 @@ bool BRepDisplayManager::containsResource(ResourceId resourceId) const
     return m_topologyByResource.find(resourceId) != m_topologyByResource.end();
 }
 
-bool BRepDisplayManager::containsPart(RenderPartId partId) const
-{
-    return m_topologyByPart.find(partId) != m_topologyByPart.end();
-}
-
-BRepPartBinding BRepDisplayManager::binding(TopologyId topologyId) const
+BRepTopologyBinding BRepDisplayManager::binding(TopologyId topologyId) const
 {
     BindingByTopologyMap::const_iterator iterator = m_bindingByTopology.find(topologyId);
-    return iterator != m_bindingByTopology.end() ? iterator->second : BRepPartBinding();
+    return iterator != m_bindingByTopology.end() ? iterator->second : BRepTopologyBinding();
 }
-
+const BRepTopologyBinding* BRepDisplayManager::bindingPointer(TopologyId topologyId) const
+{
+    BindingByTopologyMap::const_iterator iterator = m_bindingByTopology.find(topologyId);
+    return iterator != m_bindingByTopology.end() ? &iterator->second : 0;
+}
 ResourceId BRepDisplayManager::resourceId(TopologyId topologyId) const
 {
     BindingByTopologyMap::const_iterator iterator = m_bindingByTopology.find(topologyId);
     return iterator != m_bindingByTopology.end() ? iterator->second.resourceId : InvalidResourceId;
 }
 
-RenderPartId BRepDisplayManager::partId(TopologyId topologyId) const
+BRepTopologyResourceType BRepDisplayManager::resourceType(TopologyId topologyId) const
 {
     BindingByTopologyMap::const_iterator iterator = m_bindingByTopology.find(topologyId);
-    return iterator != m_bindingByTopology.end() ? iterator->second.partId : InvalidRenderPartId;
+    return iterator != m_bindingByTopology.end() ? iterator->second.resourceType : BRepTopologyResourceType::Unknown;
 }
 
-TopologyId BRepDisplayManager::topologyIdByResource(ResourceId resourceId) const
+TopologyId BRepDisplayManager::topologyId(ResourceId resourceId) const
 {
     TopologyByResourceMap::const_iterator iterator = m_topologyByResource.find(resourceId);
     return iterator != m_topologyByResource.end() ? iterator->second : InvalidTopologyId;
 }
-
-TopologyId BRepDisplayManager::topologyIdByPart(RenderPartId partId) const
+std::vector<TopologyId> BRepDisplayManager::topologyIds() const
 {
-    TopologyByPartMap::const_iterator iterator = m_topologyByPart.find(partId);
-    return iterator != m_topologyByPart.end() ? iterator->second : InvalidTopologyId;
-}
+    std::vector<TopologyId> result;
+    result.reserve(m_bindingByTopology.size());
 
+    for (BindingByTopologyMap::const_iterator iterator = m_bindingByTopology.begin(); iterator != m_bindingByTopology.end(); ++iterator)
+    {
+        result.push_back(iterator->first);
+    }
+
+    return result;
+}
 std::size_t BRepDisplayManager::topologyCount() const
 {
     return m_bindingByTopology.size();
@@ -215,7 +204,6 @@ void BRepDisplayManager::clear()
 
     m_bindingByTopology.clear();
     m_topologyByResource.clear();
-    m_topologyByPart.clear();
 }
 
 }

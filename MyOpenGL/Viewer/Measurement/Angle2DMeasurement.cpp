@@ -421,7 +421,7 @@ bool Angle2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
         QVector3D(endVector.x(), endVector.y(), 0.0f)
     };
 
-    BufferGeometry* lineGeometry = SimpleModeling::createLines("MeasurementAngle2DLine", linePoints, geometryColor, lineWidth());
+    BufferGeometry* lineGeometry = SimpleModeling::createLines("MeasurementAngle2DLine", linePoints, geometryColor);
 
     if (lineGeometry != 0 && viewer->resourceManager().adopt(lineGeometry) != InvalidResourceId)
     {
@@ -432,6 +432,7 @@ bool Angle2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
             linePart->setGeometry(lineGeometry);
             linePart->setAnchor3D(m_planeOrigin);
             linePart->setAnchor2D(vertexScene);
+            linePart->setLineWidth(lineWidth());
             linePart->setFollowCamera(true);
             linePart->setPixelScale(false);
         }

@@ -606,7 +606,7 @@ bool Renderer::drawColorGeometry(const Geometry* geometry,
 
     const bool lineGeometry =geometry->renderType() == RenderType::Lines ||geometry->renderType() == RenderType::LineStrip;
 
-    if (lineGeometry)gl->glLineWidth(geometry->lineWidth());
+    if (lineGeometry)gl->glLineWidth(states->m_lineWidth);
 
     bool result = true;
 
@@ -687,7 +687,7 @@ bool Renderer::drawVertexColorGeometry(const Geometry* geometry,
         geometry->renderType() == RenderType::LineStrip;
 
     if (lineGeometry)
-        gl->glLineWidth(geometry->lineWidth());
+        gl->glLineWidth(states->m_lineWidth);
 
     bool result = true;
 
@@ -800,7 +800,7 @@ bool Renderer::drawTextureGeometry(const Geometry* geometry,
         geometry->renderType() == RenderType::LineStrip;
 
     if (lineGeometry)
-        gl->glLineWidth(geometry->lineWidth());
+        gl->glLineWidth(states->m_lineWidth);
 
     bool result = true;
 
@@ -1039,7 +1039,7 @@ bool Renderer::drawLitGeometry(const Geometry* geometry,
         geometry->renderType() == RenderType::LineStrip;
 
     if (lineGeometry)
-        gl->glLineWidth(geometry->lineWidth());
+        gl->glLineWidth(states->m_lineWidth);
 
     bool result = true;
 

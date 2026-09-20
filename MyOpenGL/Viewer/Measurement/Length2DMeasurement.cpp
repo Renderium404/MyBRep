@@ -450,7 +450,7 @@ bool Length2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     const QVector4D& measurementColor = lineColor();
     const QVector3D geometryColor(measurementColor.x(), measurementColor.y(), measurementColor.z());
 
-    BufferGeometry* geometry = SimpleModeling::createLine("MeasurementLength2DLine", QVector3D(0.0f, 0.0f, 0.0f), QVector3D(lineVector.x(), lineVector.y(), 0.0f), geometryColor, lineWidth());
+    BufferGeometry* geometry = SimpleModeling::createLine("MeasurementLength2DLine", QVector3D(0.0f, 0.0f, 0.0f), QVector3D(lineVector.x(), lineVector.y(), 0.0f), geometryColor);
 
     if (geometry == 0)
     {
@@ -478,6 +478,7 @@ bool Length2DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     linePart->setAnchor3D(m_planeOrigin);
     linePart->setAnchor2D(startScene);
     linePart->setFollowCamera(true);
+    linePart->setLineWidth(lineWidth());
     linePart->setPixelScale(false);
 
     const QString startText = QStringLiteral("P1=%1").arg(pointText(start));

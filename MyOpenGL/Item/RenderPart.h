@@ -106,6 +106,9 @@ public:
     RenderPartStateMode depthWriteMode() const{return m_depthWriteMode;}
     /// 设置当前 Part 对 RenderItem Depth Write 状态的覆盖方式。
     void setDepthWriteMode(RenderPartStateMode mode){ m_depthWriteMode = mode;}
+
+    float lineWidth() const;
+    bool setLineWidth(float width);
 protected:
     friend class ItemManager;
 
@@ -131,6 +134,7 @@ protected:
     RenderPartId m_id = InvalidRenderPartId; // 当前 Part 的稳定 ID。
     const Geometry* m_geometry = 0; // 当前引用的 Geometry，不拥有。
     const Material* m_material = 0; // 当前 Part Material，不拥有；为空时继承 Item Material。
+    float m_lineWidth = 1.0f;       // 当前 Part Line Width。
     AxisAlignedBoundingBox m_localBounds; // 当前 Part 自身 Local Space Bounds。
     QVector3D m_anchor3D = QVector3D(0.0f, 0.0f, 0.0f); // Item Local Space 三维 Anchor。
     QVector2D m_anchor2D = QVector2D(0.0f, 0.0f);       // Camera Right / Up 方向场景空间偏移。

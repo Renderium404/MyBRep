@@ -222,6 +222,7 @@ bool RenderPart::buildRenderState(const RenderItem& item,
 
     state.depthTestEnabled =resolvePartState(item.depthTestEnabled(),m_depthTestMode);
     state.depthWriteEnabled =resolvePartState(item.depthWriteEnabled(),m_depthWriteMode);
+    state.m_lineWidth =this->lineWidth();
     state.blendEnabled = false;
 
     /// 标准模型。
@@ -310,3 +311,18 @@ void RenderPart::clearLocalBounds()
     m_localBounds.reset();
 }
 
+float RenderPart::lineWidth() const
+{
+    return m_lineWidth;
+}
+
+bool RenderPart::setLineWidth(float width)
+{
+    if (width <= 0.0f)
+    {
+        return false;
+    }
+
+    m_lineWidth = width;
+    return true;
+}

@@ -141,7 +141,12 @@ private:
     MyMath::Matrix4 m_localToWorld;       // 当前实例从局部空间到世界空间的放置。
     MyMath::Matrix4 m_worldToLocal;       // 当前实例从世界空间到局部空间的逆放置。
 };
-
+using Instance = Instance_Object<Topology_Object&>;
+using Edge = Instance;
+using Wire = Instance;
+using Face = Instance;
+using Shell = Instance;
+using Solid = Instance;
 }
 
 #endif // MYBREP_INSTANCE_INSTANCE_OBJECT_H

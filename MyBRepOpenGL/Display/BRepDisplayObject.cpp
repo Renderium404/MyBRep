@@ -8,9 +8,6 @@ namespace Display
 BRepDisplayObject::BRepDisplayObject()
     : id(InvalidBRepDisplayId)
     , itemId(InvalidRenderItemId)
-    , solidGeometryResourceId(InvalidBRepSolidGeometryResourceId)
-    , surfaceGeometryId(InvalidResourceId)
-    , wireframeGeometryId(InvalidResourceId)
     , surfaceMaterialId(InvalidMaterialId)
     , wireframeMaterialId(InvalidMaterialId)
 {
@@ -18,51 +15,24 @@ BRepDisplayObject::BRepDisplayObject()
 
 bool BRepDisplayObject::isValid() const
 {
-    if (id == InvalidBRepDisplayId || itemId == InvalidRenderItemId)
-    {
-        return false;
-    }
-
-    const bool surfaceEmpty =
-        surfaceGeometryId == InvalidResourceId &&
-        surfaceMaterialId == InvalidMaterialId;
-
-    const bool surfaceComplete =
-        surfaceGeometryId != InvalidResourceId &&
-        surfaceMaterialId != InvalidMaterialId;
-
-    const bool wireframeEmpty =
-        wireframeGeometryId == InvalidResourceId &&
-        wireframeMaterialId == InvalidMaterialId;
-
-    const bool wireframeComplete =
-        wireframeGeometryId != InvalidResourceId &&
-        wireframeMaterialId != InvalidMaterialId;
-
-    return (surfaceEmpty || surfaceComplete) &&
-           (wireframeEmpty || wireframeComplete) &&
-           (surfaceComplete || wireframeComplete);
+    if (id == InvalidBRepDisplayId || itemId == InvalidRenderItemId) return false;
+    return hasSurface() || hasWireframe();
 }
 
 bool BRepDisplayObject::hasSurface() const
 {
-    return surfaceGeometryId != InvalidResourceId &&
-           surfaceMaterialId != InvalidMaterialId;
+    return surfaceMaterialId != InvalidMaterialId;
 }
 
 bool BRepDisplayObject::hasWireframe() const
 {
-    return wireframeGeometryId != InvalidResourceId &&
-           wireframeMaterialId != InvalidMaterialId;
+    return wireframeMaterialId != InvalidMaterialId;
 }
 
 void BRepDisplayObject::clear()
 {
     id = InvalidBRepDisplayId;
     itemId = InvalidRenderItemId;
-    solidGeometryResourceId = InvalidBRepSolidGeometryResourceId;
-    surfaceGeometryId = InvalidResourceId;
-    wireframeGeometryId = InvalidResourceId;
     surfaceMaterialId = InvalidMaterialId;
     wireframeMaterialId = InvalidMaterialId;
 }

@@ -15,7 +15,5 @@ target_include_directories(MyBRep
 
 target_link_libraries(MyBRep
     PUBLIC
-    Qt5::Core
-    Qt5::Gui
     MyMath          # 添加对 MyMath 的依赖
 )

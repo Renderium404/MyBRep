@@ -10,6 +10,7 @@ namespace Display
 BRepDisplayStyle::BRepDisplayStyle()
     : surfaceColor(0.72f, 0.76f, 0.82f, 1.0f)
     , wireColor(0.08f, 0.08f, 0.08f, 1.0f)
+    , wireWidth(1.5f)
     , surfaceLightingEnabled(true)
 {
 }
@@ -21,7 +22,9 @@ bool BRepDisplayStyle::isValid() const
 
 bool BRepDisplayStyle::isWireframeValid() const
 {
-    return isValidColor(wireColor);
+    return isValidColor(wireColor) &&
+           MyMath::isFinite(static_cast<double>(wireWidth)) &&
+           wireWidth > 0.0f;
 }
 
 bool BRepDisplayStyle::isFaceValid() const

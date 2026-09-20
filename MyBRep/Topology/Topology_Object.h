@@ -45,17 +45,15 @@ public:
     // 判断当前句柄是否按底层拓扑实体的相反方向使用。
     bool isReversed() const;
 
-protected:
-    // 使用共享拓扑实体和明确方向构造轻量拓扑句柄。
-    Topology_Object(const Foundation::RefPtr<Topology_TObject>& object, Topology_Orientation orientation);
 
     /// 派生类支持
-
     // 返回当前句柄持有的共享Topology_TObject引用，供具体拓扑句柄访问强类型实体。
     const Foundation::RefPtr<Topology_TObject>& tObject() const;
     // 返回当前使用方向的相反方向，供具体拓扑句柄实现reversed()。
     Topology_Orientation reversedOrientation() const;
-
+protected:
+    // 使用共享拓扑实体和明确方向构造轻量拓扑句柄。
+    Topology_Object(const Foundation::RefPtr<Topology_TObject>& object, Topology_Orientation orientation);
 private:
     Foundation::RefPtr<Topology_TObject> m_object; // 当前句柄共享的底层拓扑实体。
     Topology_Orientation m_orientation; // 当前句柄相对于底层拓扑实体的使用方向。

@@ -350,14 +350,17 @@ bool Angle3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
         p1, p3
     };
 
-    BufferGeometry* lineGeometry = SimpleModeling::createLines("MeasurementAngle3DLine", linePoints, geometryColor, lineWidth());
+    BufferGeometry* lineGeometry = SimpleModeling::createLines("MeasurementAngle3DLine", linePoints, geometryColor);
 
     if (lineGeometry != 0 && viewer->resourceManager().adopt(lineGeometry) != InvalidResourceId)
     {
         RenderPart* linePart = viewer->measurementItemManager().createPart();
         item->addPart(linePart);
         if (linePart != 0)
+        {
+            linePart->setLineWidth(lineWidth());
             linePart->setGeometry(lineGeometry);
+        }
         else
             viewer->resourceManager().remove(lineGeometry->id());
     }
@@ -369,14 +372,17 @@ bool Angle3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measurem
     /// 圆弧半径使用较短测量边长度的四分之一。
     const float arcRadius = qMin(firstDirection.length(), endDirection.length()) * 0.25f;
 
-    BufferGeometry* arcGeometry = SimpleModeling::createArc("MeasurementAngle3DArc", p1, firstDirection, endDirection, arcRadius, geometryColor, lineWidth());
+    BufferGeometry* arcGeometry = SimpleModeling::createArc("MeasurementAngle3DArc", p1, firstDirection, endDirection, arcRadius, geometryColor);
 
     if (arcGeometry != 0 && viewer->resourceManager().adopt(arcGeometry) != InvalidResourceId)
     {
         RenderPart* arcPart = viewer->measurementItemManager().createPart();
         item->addPart(arcPart);
         if (arcPart != 0)
+        {
+            arcPart->setLineWidth(lineWidth());
             arcPart->setGeometry(arcGeometry);
+        }
         else
             viewer->resourceManager().remove(arcGeometry->id());
     }

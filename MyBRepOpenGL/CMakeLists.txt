@@ -6,12 +6,8 @@
 set(MYBREP_OPENGL_SRC
     Builder/BRepFaceBuilder.cpp
     Builder/BRepFaceBuilder.h
-    Builder/BRepShellBuilder.cpp
-    Builder/BRepShellBuilder.h
-    Builder/BRepSolidBuilder.cpp
-    Builder/BRepSolidBuilder.h
-    Builder/BRepWireframeBuilder.cpp
-    Builder/BRepWireframeBuilder.h
+    Builder/BRepEdgeBuilder.cpp
+    Builder/BRepEdgeBuilder.h
 
     Display/BRepDisplayManager.cpp
     Display/BRepDisplayManager.h
@@ -19,35 +15,19 @@ set(MYBREP_OPENGL_SRC
     Display/BRepDisplayObject.h
     Display/BRepDisplayStyle.cpp
     Display/BRepDisplayStyle.h
-    Display/BRepSolidGeometryResource.cpp
-    Display/BRepSolidGeometryResource.h
-
-
 
     Viewer/BRepViewerWidget.cpp
     Viewer/BRepViewerWidget.h
 )
 
-# ============================================================
-# 静态库
-# ============================================================
-
 add_library(MyBRepOpenGL STATIC
     ${MYBREP_OPENGL_SRC}
 )
-
-# ============================================================
-# 头文件路径
-# ============================================================
 
 target_include_directories(MyBRepOpenGL
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
-
-# ============================================================
-# 依赖
-# ============================================================
 
 target_link_libraries(MyBRepOpenGL
     PUBLIC

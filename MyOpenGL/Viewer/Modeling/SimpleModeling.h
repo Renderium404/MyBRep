@@ -11,13 +11,13 @@ namespace SimpleModeling
 {
     /// 线段
     /// 创建一条独立线段。
-    BufferGeometry* createLine(const QString& name, const QVector3D& start, const QVector3D& end, const QVector3D& color, float lineWidth = 1.0f);
+    BufferGeometry* createLine(const QString& name, const QVector3D& start, const QVector3D& end, const QVector3D& color);
     /// 创建一条连续折线，按 points 顺序使用 GL_LINE_STRIP 连续连接。
-    BufferGeometry* createLineStrip(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color, float lineWidth = 1.0f);
+    BufferGeometry* createLineStrip(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color);
     /// 创建多条相互独立的线段，points 每两个点组成一条线。
-    BufferGeometry* createLines(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color, float lineWidth = 1.0f);
+    BufferGeometry* createLines(const QString& name, const std::vector<QVector3D>& points, const QVector3D& color);
     /// 创建由两个方向确定的较小夹角圆弧。
-    BufferGeometry* createArc(const QString& name, const QVector3D& center, const QVector3D& startDirection, const QVector3D& endDirection, float radius, const QVector3D& color, float lineWidth = 1.0f, int segments = 32); 
+    BufferGeometry* createArc(const QString& name, const QVector3D& center, const QVector3D& startDirection, const QVector3D& endDirection, float radius, const QVector3D& color, int segments = 32); 
     
     /// 球
     BufferGeometry* createSphere(const QString& name, float radius, int segments = 48, int rings = 24);

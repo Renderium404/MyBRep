@@ -281,7 +281,7 @@ bool Length3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     const QVector4D& measurementColor = lineColor();
     const QVector3D geometryColor(measurementColor.x(), measurementColor.y(), measurementColor.z());
 
-    BufferGeometry* geometry = SimpleModeling::createLine("MeasurementLength3DLine", p1, p2, geometryColor, lineWidth());
+    BufferGeometry* geometry = SimpleModeling::createLine("MeasurementLength3DLine", p1, p2, geometryColor);
 
     if (geometry == 0 || viewer->resourceManager().adopt(geometry) == InvalidResourceId)
     {
@@ -293,7 +293,11 @@ bool Length3DMeasurement::commitResult(OpenGLViewerWidget* viewer, const Measure
     RenderPart* part = viewer->measurementItemManager().createPart();
     item->addPart(part);
     if (part != 0)
+    {
         part->setGeometry(geometry);
+        part->setLineWidth(lineWidth());
+    }
+        
 
     const QVector2D sceneAnchor(0.0f, 0.0f);
 
