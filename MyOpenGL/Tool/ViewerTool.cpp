@@ -3,6 +3,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QWheelEvent>
 
 ViewerTool::ViewerTool()
 {
@@ -22,6 +23,11 @@ void ViewerTool::deactivate(OpenGLViewerWidget* viewer)
     Q_UNUSED(viewer);
 }
 
+bool ViewerTool::isFinished() const
+{
+    return false;
+}
+
 bool ViewerTool::mousePressEvent(OpenGLViewerWidget* viewer, QMouseEvent* event)
 {
     Q_UNUSED(viewer);
@@ -37,6 +43,13 @@ bool ViewerTool::mouseMoveEvent(OpenGLViewerWidget* viewer, QMouseEvent* event)
 }
 
 bool ViewerTool::mouseReleaseEvent(OpenGLViewerWidget* viewer, QMouseEvent* event)
+{
+    Q_UNUSED(viewer);
+    Q_UNUSED(event);
+    return false;
+}
+
+bool ViewerTool::wheelEvent(OpenGLViewerWidget* viewer, QWheelEvent* event)
 {
     Q_UNUSED(viewer);
     Q_UNUSED(event);

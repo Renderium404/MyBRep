@@ -16,14 +16,11 @@
 #include <QResizeEvent>
 #include <QPoint>
 #include <QPointF>
-#include <cmath>
-#include <algorithm>
 #include "MyOpenGL/Camera/Camera.h"
 #include "MyOpenGL/Item/RenderItem.h"
 #include "MyOpenGL/Item/RenderPart.h"
 #include "MyOpenGL/Material/Material.h"
 #include "MyOpenGL/Resource/Geometry.h"
-#include "MyOpenGL/Resource/Texture.h"
 #include "MyOpenGL/Viewer/Modeling/PrimitiveMeshBuilder.h"
 class ViewportOverlayWidget : public QWidget
 {
@@ -60,10 +57,6 @@ OpenGLViewerWidget::OpenGLViewerWidget(QWidget* parent)
     : QOpenGLWidget(parent)
     , m_viewportOverlay(0)
     , m_systemVertexColorMaterial(0)
-    , m_navigationAnchorGeometry("NavigationAnchor", BufferUsage::Static, RenderType::Lines)
-    , m_navigationAnchorVisible(false)
-    , m_navigationAnchorPixelSize(28)
-    , m_hasNavigationAnchor(false)
     , m_glReady(false)
     , m_releasePerformed(false)
     , m_sceneDepthWidth(0)
@@ -91,22 +84,10 @@ OpenGLViewerWidget::OpenGLViewerWidget(QWidget* parent)
     Camera* camera = m_cameraManager.createCamera("MainCamera");
     if (camera == 0)
         qWarning() << "OpenGLViewerWidget construction failed: unable to create MainCamera.";
-    //相机锚点资源构建
-    if (!buildNavigationAnchorGeometry())
-        qWarning() << "OpenGLViewerWidget construction failed: unable to build NavigationAnchor Geometry.";
     //坐标系，导航等系统资源构建
     buildViewerResources();
-
-    m_navigationAnchorHideTimer.setSingleShot(true);
-
-    connect(&m_navigationAnchorHideTimer, &QTimer::timeout, this, [this]()
-    {
-        if (m_hasNavigationAnchor)
-            return;
-
-        m_navigationAnchorVisible = false;
-        update();
-    });
+    //Tool层激活并申请内建工具资源。
+    m_toolManager.activate(this);
     //悬浮层配置
     m_viewportOverlay = new ViewportOverlayWidget(this);
     m_viewportOverlay->setGeometry(rect());//将悬浮层塞满父窗口
@@ -117,6 +98,7 @@ OpenGLViewerWidget::OpenGLViewerWidget(QWidget* parent)
 OpenGLViewerWidget::~OpenGLViewerWidget()
 {
     releaseViewerGL();
+    m_toolManager.deactivate(this);
     unregisterViewerResources();
 }
 
@@ -384,23 +366,9 @@ void OpenGLViewerWidget::drawSceneFront(Renderer& renderer, const RenderContext&
         }
     }
 
-    /// Camera Navigation 锚点
-
-    if (m_navigationAnchorVisible && m_systemVertexColorMaterial != 0)
-    {
-        RenderState anchorState;
-        if (buildNavigationAnchorRenderState(context, anchorState))
-        {
-            if (!renderer.clearDepth(anchorState.viewport))
-            {
-                qWarning() << "OpenGLViewerWidget paintGL failed: NavigationAnchor depth clearing failed.";
-            }
-            else if (!renderer.drawGeometry(&m_navigationAnchorGeometry, m_systemVertexColorMaterial, anchorState, noLights))
-            {
-                qWarning() << "OpenGLViewerWidget paintGL failed: NavigationAnchor drawing failed.";
-            }
-        }
-    }
+    /// Tool前景显示。
+    if (!m_toolManager.drawSceneFront(this, renderer, context))
+        qWarning() << "OpenGLViewerWidget drawSceneFront failed: Tool drawing failed.";
 
     /// 右上角视图导航
     ///
@@ -502,9 +470,6 @@ void OpenGLViewerWidget::buildViewerResources()
     if (m_resourceManager.borrow(&m_viewNavigation.axisGeometry()) == InvalidResourceId)
         qWarning() << "OpenGLViewerWidget buildViewerResources failed: unable to borrow ViewNavigation Axis Geometry.";
 
-    if (m_resourceManager.borrow(&m_navigationAnchorGeometry) == InvalidResourceId)
-        qWarning() << "OpenGLViewerWidget buildViewerResources failed: unable to borrow NavigationAnchor Geometry.";
-
     /// Viewer 系统显示规则
 
     m_coordinateSystem.setWorldOrigin(QVector3D(0.0f, 0.0f, 0.0f));
@@ -548,11 +513,6 @@ void OpenGLViewerWidget::unregisterViewerResources()
     if (id != InvalidResourceId && !m_resourceManager.remove(id, gl))
         qWarning() << "OpenGLViewerWidget unregisterViewerResources failed: ViewNavigation Axis Geometry.";
 
-    id = m_navigationAnchorGeometry.id();
-
-    if (id != InvalidResourceId && !m_resourceManager.remove(id, gl))
-        qWarning() << "OpenGLViewerWidget unregisterViewerResources failed: NavigationAnchor Geometry.";
-
     if (contextCurrent)
         doneCurrent();
 }
@@ -579,101 +539,6 @@ bool OpenGLViewerWidget::buildRenderContext(RenderContext& context) const
     return context.isValid();
 }
 
-bool OpenGLViewerWidget::buildNavigationAnchorGeometry()
-{
-    const QVector3D color(1.0f, 0.75f, 0.1f);
-    const float length = 0.78f;
-
-    /// 十字锚点。
-    ///
-    /// Geometry 在独立的 [-1, 1] Overlay 空间中绘制，
-    /// 实际屏幕尺寸由 m_navigationAnchorPixelSize 控制。
-    ///
-    /// Vertex:
-    /// Position.xyz + Color.rgb
-
-    const std::vector<GLfloat> vertices =
-    {
-        -length, 0.0f, 0.0f, color.x(), color.y(), color.z(),
-         length, 0.0f, 0.0f, color.x(), color.y(), color.z(),
-
-         0.0f, -length, 0.0f, color.x(), color.y(), color.z(),
-         0.0f,  length, 0.0f, color.x(), color.y(), color.z()
-    };
-
-    const std::vector<GLuint> indices =
-    {
-        0, 1,
-        2, 3
-    };
-
-    std::vector<GeometryVertexAttribute> attributes;
-
-    GeometryVertexAttribute position;
-    position.location = GeometryAttribute::Position;
-    position.componentCount = 3;
-    position.valueOffset = 0;
-    attributes.push_back(position);
-
-    GeometryVertexAttribute colorAttribute;
-    colorAttribute.location = GeometryAttribute::Color;
-    colorAttribute.componentCount = 3;
-    colorAttribute.valueOffset = 3;
-    attributes.push_back(colorAttribute);
-
-    m_navigationAnchorGeometry.setVertexLayout(6, attributes);
-    m_navigationAnchorGeometry.setVertexData(vertices);
-    m_navigationAnchorGeometry.setIndexData(indices);
-
-    return true;
-}
-
-bool OpenGLViewerWidget::buildNavigationAnchorRenderState(const RenderContext& context, RenderState& state) const
-{
-    if (!m_navigationAnchorVisible || !context.isValid())
-        return false;
-    //将世界坐标转换到裁剪空间（x,y,z,w）
-    const QVector4D clip = context.projection * context.view * QVector4D(m_navigationAnchor, 1.0f);
-
-    if (clip.w() <= 1.0e-8f)
-        return false;
-
-    const float ndcX = clip.x() / clip.w();
-    const float ndcY = clip.y() / clip.w();
-    const float ndcZ = clip.z() / clip.w();
-
-    if (ndcX < -1.0f || ndcX > 1.0f ||
-        ndcY < -1.0f || ndcY > 1.0f ||
-        ndcZ < -1.0f || ndcZ > 1.0f)
-    {
-        return false;
-    }
-    //将裁剪坐标转屏幕的归一化坐标
-    const float pixelX = (ndcX * 0.5f + 0.5f) * context.viewportWidth;
-    const float pixelY = (ndcY * 0.5f + 0.5f) * context.viewportHeight;
-    const int halfSize = m_navigationAnchorPixelSize / 2;
-
-    state = RenderState();
-
-    state.model.setToIdentity();
-
-    state.view.setToIdentity();
-    state.view.lookAt(QVector3D(0.0f, 0.0f, 3.0f), QVector3D(0.0f, 0.0f, 0.0f), QVector3D(0.0f, 1.0f, 0.0f));
-
-    state.projection.setToIdentity();
-    state.projection.ortho(-1.0f, 1.0f, -1.0f, 1.0f, 0.1f, 10.0f);
-    //视口位置跟随屏幕的映射坐标
-    state.viewport = RenderViewport(
-        static_cast<int>(pixelX) - halfSize,
-        static_cast<int>(pixelY) - halfSize,
-        m_navigationAnchorPixelSize,
-        m_navigationAnchorPixelSize);
-
-    state.depthTestEnabled = true;
-    state.depthWriteEnabled = true;
-
-    return state.viewport.isValid();
-}
 
 bool OpenGLViewerWidget::drawItems(Renderer& renderer,
                                    const ItemManager& itemManager,
@@ -871,179 +736,6 @@ void OpenGLViewerWidget::toggleProjection()
         update();
 }
 
-void OpenGLViewerWidget::setMeasurementTool(MeasurementTool* tool)
-{
-    setActiveTool(tool);
-}
-MeasurementTool* OpenGLViewerWidget::measurementTool()
-{
-    return dynamic_cast<MeasurementTool*>(m_toolManager.activeTool());
-}
-
-const MeasurementTool* OpenGLViewerWidget::measurementTool() const
-{
-    return dynamic_cast<const MeasurementTool*>(m_toolManager.activeTool());
-}
-void OpenGLViewerWidget::clearMeasurementItems()
-{
-    while (m_toolItemManager.count() > 0)
-    {
-        const int index = static_cast<int>(m_toolItemManager.count()) - 1;
-
-        if (!removeMeasurementItemAt(index))
-        {
-            qWarning() << "OpenGLViewerWidget clearMeasurementItems failed at index:" << index;
-            break;
-        }
-    }
-
-    update();
-}
-
-bool OpenGLViewerWidget::removeLastMeasurementItem()
-{
-    const int count = static_cast<int>(m_toolItemManager.count());
-
-    if (count <= 0)
-        return false;
-
-    if (!removeMeasurementItemAt(count - 1))
-        return false;
-
-    update();
-    return true;
-}
-
-bool OpenGLViewerWidget::removeMeasurementItemAt(int index)
-{
-    if (index < 0 || index >= static_cast<int>(m_toolItemManager.count()))
-        return false;
-
-    const RenderItem* item = m_toolItemManager.itemAt(index);
-
-    if (item == 0)
-        return false;
-
-    std::vector<ResourceId> geometryIds;
-    std::vector<ResourceId> textureIds;
-    std::vector<MaterialId> materialIds;
-
-    const Material* itemMaterial = item->material();
-
-    /// 收集 RenderPart Geometry。
-    for (int partIndex = 0; partIndex < item->partCount(); ++partIndex)
-    {
-        const RenderPart* part = item->partAt(partIndex);
-
-        if (part == 0 || part->geometry() == 0)
-            continue;
-
-        const ResourceId geometryId = part->geometry()->id();
-
-        if (geometryId != InvalidResourceId && std::find(geometryIds.begin(), geometryIds.end(), geometryId) == geometryIds.end())
-            geometryIds.push_back(geometryId);
-    }
-
-    /// 收集 RenderLabel Geometry / 独立 Material / Texture。
-    for (int labelIndex = 0; labelIndex < item->labelCount(); ++labelIndex)
-    {
-        const RenderLabel* label = item->labelAt(labelIndex);
-
-        if (label == 0)
-            continue;
-
-        if (label->geometry() != 0)
-        {
-            const ResourceId geometryId = label->geometry()->id();
-
-            if (geometryId != InvalidResourceId && std::find(geometryIds.begin(), geometryIds.end(), geometryId) == geometryIds.end())
-                geometryIds.push_back(geometryId);
-        }
-
-        const Material* material = label->material();
-
-        if (material == 0)
-            continue;
-
-        /// Item Material 是测量工具共享 Material，不能随单个测量结果删除。
-        if (material == itemMaterial)
-            continue;
-
-        const MaterialId materialId = material->id();
-
-        if (materialId != InvalidMaterialId && std::find(materialIds.begin(), materialIds.end(), materialId) == materialIds.end())
-            materialIds.push_back(materialId);
-
-        const Texture* texture = material->texture();
-
-        if (texture == 0)
-            continue;
-
-        const ResourceId textureId = texture->id();
-
-        if (textureId != InvalidResourceId && std::find(textureIds.begin(), textureIds.end(), textureId) == textureIds.end())
-            textureIds.push_back(textureId);
-    }
-
-    const RenderItemId itemId = item->id();
-
-    /// RenderItem 拥有 RenderPart / RenderLabel，但不拥有它们引用的资源。
-    if (!m_toolItemManager.remove(itemId))
-        return false;
-
-    bool contextCurrent = false;
-    QOpenGLFunctions_3_3_Core* gl = 0;
-
-    if (context() != 0 && m_openGLContext.isInitialized())
-    {
-        makeCurrent();
-
-        if (QOpenGLContext::currentContext() == context())
-        {
-            gl = m_openGLContext.gl();
-            contextCurrent = true;
-        }
-    }
-
-    bool result = true;
-
-    /// 删除文本 Label 独立 Material。
-    for (std::size_t materialIndex = 0; materialIndex < materialIds.size(); ++materialIndex)
-    {
-        if (!m_materialManager.remove(materialIds[materialIndex]))
-        {
-            qWarning() << "OpenGLViewerWidget removeMeasurementItemAt failed to remove Label Material:" << static_cast<qulonglong>(materialIds[materialIndex]);
-            result = false;
-        }
-    }
-
-    /// 删除当前测量结果使用的 Geometry。
-    for (std::size_t geometryIndex = 0; geometryIndex < geometryIds.size(); ++geometryIndex)
-    {
-        if (!m_resourceManager.remove(geometryIds[geometryIndex], gl))
-        {
-            qWarning() << "OpenGLViewerWidget removeMeasurementItemAt failed to remove Geometry:" << static_cast<qulonglong>(geometryIds[geometryIndex]);
-            result = false;
-        }
-    }
-
-    /// 删除文本 Label 使用的 Texture。
-    for (std::size_t textureIndex = 0; textureIndex < textureIds.size(); ++textureIndex)
-    {
-        if (!m_resourceManager.remove(textureIds[textureIndex], gl))
-        {
-            qWarning() << "OpenGLViewerWidget removeMeasurementItemAt failed to remove Texture:" << static_cast<qulonglong>(textureIds[textureIndex]);
-            result = false;
-        }
-    }
-
-    if (contextCurrent)
-        doneCurrent();
-
-    return result;
-}
-
-
 bool OpenGLViewerWidget::scenePointAtWorld(const QPointF& scene, QVector3D& world) const
 {
     if (width() <= 0 || height() <= 0)
@@ -1059,78 +751,6 @@ bool OpenGLViewerWidget::worldPointAtScene(const QVector3D& world, QPointF& scen
 
 
 
-bool OpenGLViewerWidget::navigationAnchor(QVector3D& anchor) const
-{
-    if (m_cameraManager.hasViewBounds())
-    {
-        anchor = m_cameraManager.viewBounds().center();
-        return true;
-    }
-
-    AxisAlignedBoundingBox bounds;
-
-    if (!m_itemManager.worldBounds(bounds, true))
-        return false;
-    anchor = bounds.center();
-    return true;
-}
-
-QVector3D OpenGLViewerWidget::screenPointToZoomAnchor(const QPointF& position) const
-{
-    const Camera* camera = m_cameraManager.activeCamera();
-
-    if (camera == 0 || width() <= 0 || height() <= 0)
-        return m_coordinateSystem.worldOrigin();
-
-    /// 优先使用深度缓存获取屏幕位置对应的真实场景点。
-
-    QVector3D scenePoint;
-
-    if (scenePointAtWorld(position, scenePoint))
-        return scenePoint;
-
-    /// 未命中场景时，使用 Screen Ray 与 Near / Far 中间平面的交点。
-
-    QVector3D rayOrigin;
-    QVector3D rayDirection;
-
-    if (!camera->screenPointToRay(position.x(), position.y(), width(), height(), rayOrigin, rayDirection))
-        return m_coordinateSystem.worldOrigin();
-
-    const QVector3D forward = camera->forward();
-    const float middleDepth = (camera->nearPlane() + camera->farPlane()) * 0.5f;
-    const QVector3D planePoint = camera->position() + forward * middleDepth;
-    const float denominator = QVector3D::dotProduct(rayDirection, forward);
-
-    if (qAbs(denominator) <= 1.0e-8f)
-        return planePoint;
-
-    const float distance = QVector3D::dotProduct(planePoint - rayOrigin, forward) / denominator;
-
-    if (distance < 0.0f)
-        return planePoint;
-
-    return rayOrigin + rayDirection * distance;
-}
-
-
-
-
-
-QVector3D OpenGLViewerWidget::screenPointToAnchor(const QPointF& position) const
-{
-    QVector3D scenePoint;
-
-    if (scenePointAtWorld(position, scenePoint))
-        return scenePoint;
-
-    QVector3D anchor;
-
-    if (navigationAnchor(anchor))
-        return anchor;
-
-    return m_coordinateSystem.worldOrigin();
-}
 
 bool OpenGLViewerWidget::scenePointAtWorldFromDepth(const QPointF& scene, QVector3D& world) const
 {
@@ -1325,59 +945,6 @@ void OpenGLViewerWidget::mousePressEvent(QMouseEvent* event)
         update();
         return;
     }
-    m_lastMousePosition = event->pos();
-
-    if (event->button() == Qt::LeftButton)
-    {
-        RenderContext context;
-
-        if (buildRenderContext(context))
-        {
-            ViewNavigationFace face;
-
-            if (m_viewNavigation.hitTest(event->pos(), context, face))
-            {
-                QVector3D forward;
-                QVector3D up;
-                QVector3D anchor;
-
-                if (m_viewNavigation.viewDirection(face, forward, up) &&
-                    navigationAnchor(anchor) &&
-                    m_cameraManager.setViewDirection(anchor, forward, up))
-                {
-                    update();
-                }
-
-                event->accept();
-                return;
-            }
-        }
-
-        // 左键没有命中 ViewNavigation，记录当前鼠标位置对应的导航锚点。
-        m_navigationAnchor = screenPointToAnchor(event->pos());
-        m_hasNavigationAnchor = true;
-        m_navigationAnchorHideTimer.stop();
-        m_navigationAnchorVisible = true;
-
-        update();
-
-        event->accept();
-        return;
-    }
-
-    if (event->button() == Qt::MiddleButton)
-    {
-        // 中键始终记录当前鼠标位置对应的导航锚点。
-        m_navigationAnchor = screenPointToAnchor(event->pos());
-        m_hasNavigationAnchor = true;
-        m_navigationAnchorHideTimer.stop();
-        m_navigationAnchorVisible = true;
-
-        update();
-
-        event->accept();
-        return;
-    }
 
     QOpenGLWidget::mousePressEvent(event);
 }
@@ -1391,63 +958,21 @@ void OpenGLViewerWidget::mouseMoveEvent(QMouseEvent* event)
         return;
     }
 
-    const QPointF currentPosition = event->pos();
-    const QPointF delta = currentPosition - m_lastMousePosition;
-
-    m_lastMousePosition = currentPosition;
-
-    if (!m_hasNavigationAnchor)
-    {
-        QOpenGLWidget::mouseMoveEvent(event);
-        return;
-    }
-
-    if (event->buttons() & Qt::LeftButton)
-    {
-        const float degreesPerPixel = 0.3f;
-
-        if (m_cameraManager.orbitAround(m_navigationAnchor, -delta.x() * degreesPerPixel, -delta.y() * degreesPerPixel))
-            update();
-
-        event->accept();
-        return;
-    }
-
-    if (event->buttons() & Qt::MiddleButton)
-    {
-        if (m_cameraManager.panAt(m_navigationAnchor, delta.x(), delta.y(), width(), height()))
-            update();
-
-        event->accept();
-        return;
-    }
-
     QOpenGLWidget::mouseMoveEvent(event);
 }
 
 void OpenGLViewerWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    MeasurementTool* measurement = measurementTool();
+    ViewerTool* tool = m_toolManager.activeTool();
     const bool toolHandled = m_toolManager.mouseReleaseEvent(this, event);
 
-    if (measurement != 0 && event->button() == Qt::LeftButton && measurement->state() == MeasurementState::Finished)
-        emit measurementFinished(measurement->type());
+    if (tool != 0 && tool->isFinished())
+        emit toolFinished();
 
     if (toolHandled)
     {
         event->accept();
         update();
-        return;
-    }
-    if (event->button() == Qt::LeftButton || event->button() == Qt::MiddleButton)
-    {
-        m_hasNavigationAnchor = false;
-        m_navigationAnchorVisible = false;
-        m_navigationAnchorHideTimer.stop();
-
-        update();
-
-        event->accept();
         return;
     }
 
@@ -1456,31 +981,25 @@ void OpenGLViewerWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OpenGLViewerWidget::wheelEvent(QWheelEvent* event)
 {
-    const QVector3D anchor = screenPointToZoomAnchor(event->pos());
-
-    m_navigationAnchor = anchor;
-    m_navigationAnchorVisible = true;
-
-    const float wheelSteps = static_cast<float>(event->angleDelta().y()) / 120.0f;
-    const float factor = static_cast<float>(std::pow(1.15, wheelSteps));
-
-    if (m_cameraManager.zoomAt(anchor, factor, width(), height()))
+    if (m_toolManager.wheelEvent(this, event))
+    {
+        event->accept();
         update();
+        return;
+    }
 
-    m_navigationAnchorHideTimer.start(350);
-
-    event->accept();
+    QOpenGLWidget::wheelEvent(event);
 }
 
 /// Keyboard
 
 void OpenGLViewerWidget::keyPressEvent(QKeyEvent* event)
 {
-    MeasurementTool* measurement = measurementTool();
+    ViewerTool* tool = m_toolManager.activeTool();
     const bool toolHandled = m_toolManager.keyPressEvent(this, event);
 
-    if (measurement != 0 && measurement->state() == MeasurementState::Finished)
-        emit measurementFinished(measurement->type());
+    if (tool != 0 && tool->isFinished())
+        emit toolFinished();
 
     if (toolHandled)
     {

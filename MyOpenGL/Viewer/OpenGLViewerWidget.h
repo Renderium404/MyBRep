@@ -1,11 +1,10 @@
 #ifndef OPENGLVIEWERWIDGET_H
 #define OPENGLVIEWERWIDGET_H
 
+#include <QMatrix4x4>
 #include <QOpenGLWidget>
 #include <QPointF>
-#include <QTimer>
 #include <QVector3D>
-#include <QMatrix4x4>
 #include <vector>
 
 #include "MyOpenGL/Camera/CameraManager.h"
@@ -16,27 +15,29 @@
 #include "MyOpenGL/Render/MyOpenGLContext.h"
 #include "MyOpenGL/Render/RenderContext.h"
 #include "MyOpenGL/Render/Renderer.h"
-#include "MyOpenGL/Resource/BufferGeometry.h"
+#include "MyOpenGL/Tool/ToolManager.h"
+#include "MyOpenGL/Tool/ViewerTool.h"
 #include "MyOpenGL/Viewer/System/CoordinateSystem.h"
 #include "MyOpenGL/Viewer/System/ViewNavigation.h"
-#include "MyOpenGL/Tool/ToolManager.h"
-#include "MyOpenGL/Tool/Measurement/MeasurementTool.h"
+
 class QContextMenuEvent;
 class QKeyEvent;
+class QMenu;
 class QMouseEvent;
+class QPainter;
+class QResizeEvent;
 class QWheelEvent;
 class Light;
 class Material;
+class NavigationTool;
 class RenderItem;
-class QMenu;
-class QPainter;
-class QPointF;
 class ViewportOverlayWidget;
+
 /// MyOpenGL 基础 Viewer。
-/// 负责 OpenGL 生命周期、Item 绘制、Camera 操作和 Viewer 系统显示。
+/// 负责 OpenGL 生命周期、Item 绘制、Camera 基础能力和 Viewer 系统显示。
 class OpenGLViewerWidget : public QOpenGLWidget
 {
-     Q_OBJECT
+    Q_OBJECT
 public:
     explicit OpenGLViewerWidget(QWidget* parent = 0);
     ~OpenGLViewerWidget() override;
@@ -80,18 +81,12 @@ public:
     bool fitItemsToView(float margin = 1.15f);
     void toggleProjection();//改变投影模式
 
-    /// 测量工具兼容接口
-    void setMeasurementTool(MeasurementTool* tool);
-    MeasurementTool* measurementTool();
-    const MeasurementTool* measurementTool() const;
-    /// 三维测量结果。
-    void clearMeasurementItems();
-    bool removeLastMeasurementItem();
-
     bool scenePointAtWorld(const QPointF& scene, QVector3D& world) const;
     bool worldPointAtScene(const QVector3D& world, QPointF& scene) const;
+
 signals:
-    void measurementFinished(MeasurementType type);
+    void toolFinished();
+
 protected:
     /// OpenGL事件处理
     void initializeGL() override;
@@ -110,85 +105,69 @@ protected:
     /// 子类扩展
     virtual void populateContextMenu(QMenu& menu);
     virtual bool handleKeyPress(QKeyEvent* event);
-    // 背景绘制。
     virtual void drawSceneBackground(Renderer& renderer, const RenderContext& context);
-    // 场景绘制。
     virtual void drawOpenGLFrame(Renderer& renderer, const RenderContext& context);
-    // 前景绘制。
     virtual void drawSceneFront(Renderer& renderer, const RenderContext& context);
-    // 悬浮层绘制
     virtual void drawViewportOverlay(QPainter& painter);
 
     /// 刷新 Viewport 悬浮层。
     void updateViewportOverlay();
     bool setStandardView(ViewNavigationFace face);
+
 private:
     friend class ViewportOverlayWidget;
+    friend class NavigationTool;
+
     /// OpenGL 生命周期
     void releaseViewerGL();
-    
-    bool removeMeasurementItemAt(int index);
+
     /// Viewer 系统资源
     void buildViewerResources();
     void unregisterViewerResources();
 
     /// 渲染编排
     bool buildRenderContext(RenderContext& context) const;
-    bool buildNavigationAnchorGeometry();
-    bool buildNavigationAnchorRenderState(const RenderContext& context, RenderState& state) const;
 
     /// Item 渲染
     bool drawItems(Renderer& renderer, const ItemManager& itemManager, const RenderContext& context, const std::vector<const Light*>& lights);
-    /// Camera Navigation
-    bool navigationAnchor(QVector3D& anchor) const;
-    /// 缩放走的锚点获取路径
-    QVector3D screenPointToZoomAnchor(const QPointF& position) const;
-    /// 其他操作走的锚点获取路径
-    QVector3D screenPointToAnchor(const QPointF& position) const;
-
 
     bool scenePointAtWorldFromDepth(const QPointF& scene, QVector3D& world) const;      //基于屏幕缓存的屏幕点转世界坐标
     bool scenePointAtWorldFromRay(const QPointF& scene, QVector3D& world) const;        //基于光线映射的屏幕点转世界坐标
     bool projectWorldPointToScene(const QVector3D& world, QPointF& scene) const;        //基于投影的世界坐标转屏幕坐标
+
     /// 用于可交互对象Item的深度缓存
     bool cacheSceneDepth(const RenderContext& context);         //缓存深度
-    void clearSceneDepthCache();    //清理深度
+    void clearSceneDepthCache();                                //清理深度
 
 private:
     /// Viewport Overlay
     ViewportOverlayWidget* m_viewportOverlay;             // 透明 2D 悬浮绘制层。
+
     /// Viewer 系统显示
-    CoordinateSystem m_coordinateSystem;              // 世界坐标系。
-    ViewNavigation m_viewNavigation;                  // 右上角视图导航器。
+    CoordinateSystem m_coordinateSystem;                  // 世界坐标系。
+    ViewNavigation m_viewNavigation;                      // 右上角视图导航器。
 
     /// OpenGL / Renderer
-    MyOpenGLContext m_openGLContext;                  // OpenGL API 执行环境。
-    Renderer m_renderer;                              // Geometry 绘制执行器。
+    MyOpenGLContext m_openGLContext;                      // OpenGL API 执行环境。
+    Renderer m_renderer;                                  // Geometry 绘制执行器。
 
     /// Viewer 数据
-    ResourceManager m_resourceManager;                // Resource 登记、所有权和 GPU 同步。
-    MaterialManager m_materialManager;                // Material 管理。
-    LightManager m_lightManager;                      // Light 管理。
-    CameraManager m_cameraManager;                    // Camera 管理和导航操作。
-    ItemManager m_itemManager;                        // 用户 RenderItem 管理。
-    ItemManager m_toolItemManager;                     // 工具辅助 Item 管理。
-    ToolManager m_toolManager;                         // Viewer 工具管理，不拥有 Tool。
-    /// Viewer 系统渲染
-    Material* m_systemVertexColorMaterial;            // 坐标系和导航器共用的无光照顶点颜色 Material。
-    BufferGeometry m_navigationAnchorGeometry;        // Camera Navigation 锚点显示 Geometry。
-    bool m_navigationAnchorVisible;                   // 是否显示当前导航锚点。
-    int m_navigationAnchorPixelSize;                  // 锚点固定屏幕 Pixel 尺寸。
-    QTimer m_navigationAnchorHideTimer;               // Wheel Zoom 后延迟隐藏锚点。
+    ResourceManager m_resourceManager;                    // Resource 登记、所有权和 GPU 同步。
+    MaterialManager m_materialManager;                    // Material 管理。
+    LightManager m_lightManager;                          // Light 管理。
+    CameraManager m_cameraManager;                        // Camera 管理和导航操作。
+    ItemManager m_itemManager;                            // 用户 RenderItem 管理。
+    ItemManager m_toolItemManager;                        // 工具辅助 Item 管理。
+    ToolManager m_toolManager;                            // Viewer 工具管理。
 
-    /// Input 状态
-    QPointF m_lastMousePosition;                       // 上一次鼠标位置。
-    QVector3D m_navigationAnchor;                     // 当前拖动操作锚点。
-    bool m_hasNavigationAnchor;                       // 当前是否存在拖动锚点。
+    /// Viewer 系统渲染
+    Material* m_systemVertexColorMaterial;                // 坐标系和视图导航器共用的无光照顶点颜色 Material。
 
     /// Viewer 状态
-    bool m_glReady;                                   // OpenGL 是否初始化完成。
-    bool m_releasePerformed;                          // 当前 OpenGL Context 是否已经执行 GPU 释放。
-    ///深度缓存
+    bool m_glReady;                                       // OpenGL 是否初始化完成。
+    bool m_releasePerformed;                              // 当前 OpenGL Context 是否已经执行 GPU 释放。
+
+    /// 深度缓存
     std::vector<float> m_sceneDepthBuffer;
     QMatrix4x4 m_sceneDepthInverseViewProjection;
     int m_sceneDepthWidth;

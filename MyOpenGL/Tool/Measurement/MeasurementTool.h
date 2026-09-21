@@ -83,7 +83,7 @@ public:
 
     /// 绘制当前测量过程中的临时 Overlay。
     void drawOverlay(OpenGLViewerWidget* viewer, QPainter& painter) const override = 0;
-
+    bool isFinished() const override;
 protected:
     /// 创建持久化文本 Label。
     static RenderLabel* createPersistentLabel(OpenGLViewerWidget* viewer,

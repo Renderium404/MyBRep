@@ -62,6 +62,10 @@ bool MeasurementTool::setLineWidth(float width)
     m_lineWidth = width;
     return true;
 }
+bool MeasurementTool::isFinished() const
+{
+    return m_state == MeasurementState::Finished;
+}
 RenderLabel* MeasurementTool::createPersistentLabel(OpenGLViewerWidget* viewer, RenderItem* item, const QVector3D& anchor3D, const QVector2D& anchor2D, const QPointF& pixelOffset, const QString& text)
 {
     if (viewer == 0 || item == 0 || text.isEmpty())

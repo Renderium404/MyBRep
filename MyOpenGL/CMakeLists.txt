@@ -106,6 +106,8 @@ add_library(MyOpenGLViewer STATIC
     Tool/ViewerTool.cpp
     Tool/ToolManager.h
     Tool/ToolManager.cpp
+    Tool/Navigation/NavigationTool.cpp
+    Tool/Navigation/NavigationTool.h
     Tool/Measurement/MeasurementTool.h
     Tool/Measurement/MeasurementTool.cpp
     Tool/Measurement/Length2DMeasurement.h
