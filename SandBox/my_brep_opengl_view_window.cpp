@@ -1,10 +1,14 @@
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
+#include <QApplication>
+
 #include "MyMath/CoordinateSystem.h"
 #include "MyMath/MathUtils.h"
-#include "MyMath/Vector3.h"
 #include "MyMath/Quaternion.h"
+#include "MyMath/Vector3.h"
+
 #include "MyBRep/Instance/Solid.h"
 #include "MyBRep/Modeling/Edge/EdgeModeling.h"
 #include "MyBRep/Modeling/Face/FaceModeling.h"
@@ -15,9 +19,8 @@
 #include "MyBRep/Topology/Face/Topology_Face.h"
 #include "MyBRep/Topology/Shell/Topology_Shell.h"
 #include "MyBRep/Topology/Vertex/Topology_Vertex.h"
-#include "MyBRepOpenGL/Viewer/BRepViewerWidget.h"
-#include <QApplication>
 
+#include "MyBRepOpenGL/Viewer/BRepViewerWidget.h"
 
 namespace
 {
@@ -37,7 +40,6 @@ struct RevolvedSection
 MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, int sideCount)
 {
     const std::size_t sectionCount = sections.size();
-
     std::vector<std::vector<MyBRep::Topology_Vertex> > vertices(sectionCount);
 
     for (std::size_t sectionIndex = 0; sectionIndex < sectionCount; ++sectionIndex)
@@ -49,10 +51,7 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
             const double angle = MyMath::TwoPi * static_cast<double>(sideIndex) / static_cast<double>(sideCount);
             const double x = sections[sectionIndex].radius * std::cos(angle);
             const double y = sections[sectionIndex].radius * std::sin(angle);
-
-            vertices[sectionIndex].push_back(
-                MyBRep::Topology_Vertex(
-                    MyMath::Vector3(x, y, sections[sectionIndex].z)));
+            vertices[sectionIndex].push_back(MyBRep::Topology_Vertex(MyMath::Vector3(x, y, sections[sectionIndex].z)));
         }
     }
 
@@ -66,11 +65,7 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
         for (int sideIndex = 0; sideIndex < sideCount; ++sideIndex)
         {
             const int nextIndex = (sideIndex + 1) % sideCount;
-
-            ringEdges[sectionIndex].push_back(
-                MyBRep::Modeling::createLine(
-                    vertices[sectionIndex][sideIndex],
-                    vertices[sectionIndex][nextIndex]));
+            ringEdges[sectionIndex].push_back(MyBRep::Modeling::createLine(vertices[sectionIndex][sideIndex], vertices[sectionIndex][nextIndex]));
         }
     }
 
@@ -83,10 +78,7 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
 
         for (int sideIndex = 0; sideIndex < sideCount; ++sideIndex)
         {
-            longitudinalEdges[sectionIndex].push_back(
-                MyBRep::Modeling::createLine(
-                    vertices[sectionIndex][sideIndex],
-                    vertices[sectionIndex + 1][sideIndex]));
+            longitudinalEdges[sectionIndex].push_back(MyBRep::Modeling::createLine(vertices[sectionIndex][sideIndex], vertices[sectionIndex + 1][sideIndex]));
         }
     }
 
@@ -102,7 +94,6 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
 
             std::vector<MyBRep::Topology_Edge> edges;
             edges.reserve(4);
-
             edges.push_back(ringEdges[sectionIndex][sideIndex]);
             edges.push_back(longitudinalEdges[sectionIndex][nextIndex]);
             edges.push_back(ringEdges[sectionIndex + 1][sideIndex].reversed());
@@ -111,15 +102,9 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
             const MyMath::Vector3 p0 = vertices[sectionIndex][sideIndex].point();
             const MyMath::Vector3 p1 = vertices[sectionIndex][nextIndex].point();
             const MyMath::Vector3 p3 = vertices[sectionIndex + 1][sideIndex].point();
+            const MyMath::CoordinateSystem coordinateSystem = MyMath::CoordinateSystem::fromXY(p0, p1 - p0, p3 - p0);
 
-            const MyMath::CoordinateSystem coordinateSystem =
-                MyMath::CoordinateSystem::fromXY(p0, p1 - p0, p3 - p0);
-
-            faces.push_back(
-                MyBRep::Modeling::createPlanarFace(
-                    coordinateSystem,
-                    MyBRep::Modeling::createWire(edges),
-                    SolidTolerance));
+            faces.push_back(MyBRep::Modeling::createPlanarFace(coordinateSystem, MyBRep::Modeling::createWire(edges), SolidTolerance));
         }
     }
 
@@ -127,71 +112,47 @@ MyBRep::Solid createRevolvedSolid(const std::vector<RevolvedSection>& sections, 
     {
         std::vector<MyBRep::Topology_Edge> edges;
         edges.reserve(sideCount);
+        for (int sideIndex = sideCount - 1; sideIndex >= 0; --sideIndex) edges.push_back(ringEdges.front()[sideIndex].reversed());
 
-        for (int sideIndex = sideCount - 1; sideIndex >= 0; --sideIndex)
-        {
-            edges.push_back(ringEdges.front()[sideIndex].reversed());
-        }
-
-        const MyMath::CoordinateSystem coordinateSystem =
-            MyMath::CoordinateSystem::fromAxes(
-                MyMath::Vector3(0.0, 0.0, sections.front().z),
-                MyMath::Vector3::unitX(),
-                MyMath::Vector3(0.0, -1.0, 0.0),
-                MyMath::Vector3(0.0, 0.0, -1.0));
-
-        faces.push_back(
-            MyBRep::Modeling::createPlanarFace(
-                coordinateSystem,
-                MyBRep::Modeling::createWire(edges),
-                SolidTolerance));
+        const MyMath::CoordinateSystem coordinateSystem = MyMath::CoordinateSystem::fromAxes(
+            MyMath::Vector3(0.0, 0.0, sections.front().z), MyMath::Vector3::unitX(),
+            MyMath::Vector3(0.0, -1.0, 0.0), MyMath::Vector3(0.0, 0.0, -1.0));
+        faces.push_back(MyBRep::Modeling::createPlanarFace(coordinateSystem, MyBRep::Modeling::createWire(edges), SolidTolerance));
     }
 
     // 顶面，外法向+Z。
     {
         std::vector<MyBRep::Topology_Edge> edges;
         edges.reserve(sideCount);
+        for (int sideIndex = 0; sideIndex < sideCount; ++sideIndex) edges.push_back(ringEdges.back()[sideIndex]);
 
-        for (int sideIndex = 0; sideIndex < sideCount; ++sideIndex)
-        {
-            edges.push_back(ringEdges.back()[sideIndex]);
-        }
-
-        const MyMath::CoordinateSystem coordinateSystem =
-            MyMath::CoordinateSystem::fromAxes(
-                MyMath::Vector3(0.0, 0.0, sections.back().z),
-                MyMath::Vector3::unitX(),
-                MyMath::Vector3::unitY(),
-                MyMath::Vector3::unitZ());
-
-        faces.push_back(
-            MyBRep::Modeling::createPlanarFace(
-                coordinateSystem,
-                MyBRep::Modeling::createWire(edges),
-                SolidTolerance));
+        const MyMath::CoordinateSystem coordinateSystem = MyMath::CoordinateSystem::fromAxes(
+            MyMath::Vector3(0.0, 0.0, sections.back().z), MyMath::Vector3::unitX(), MyMath::Vector3::unitY(), MyMath::Vector3::unitZ());
+        faces.push_back(MyBRep::Modeling::createPlanarFace(coordinateSystem, MyBRep::Modeling::createWire(edges), SolidTolerance));
     }
 
     const MyBRep::Topology_Shell shell = MyBRep::Modeling::createShell(faces);
     return MyBRep::Modeling::makeSolid(shell);
 }
+
 struct EnvelopeCandidatePoint
 {
-    EnvelopeCandidatePoint(double thetaValue,
-                           const MyMath::Vector3& localPointValue,
-                           const MyMath::Vector3& localNormalValue,
-                           const MyMath::Vector3& worldPointValue,
-                           const MyMath::Vector3& worldNormalValue)
-        : theta(thetaValue),
-          localPoint(localPointValue),
-          localNormal(localNormalValue),
-          worldPoint(worldPointValue),
-          worldNormal(worldNormalValue) {}
+    EnvelopeCandidatePoint(double thetaValue, const MyMath::Vector3& localPointValue, const MyMath::Vector3& localNormalValue,
+                           const MyMath::Vector3& worldPointValue, const MyMath::Vector3& worldNormalValue)
+        : theta(thetaValue), localPoint(localPointValue), localNormal(localNormalValue), worldPoint(worldPointValue), worldNormal(worldNormalValue) {}
 
     double theta;
     MyMath::Vector3 localPoint;
     MyMath::Vector3 localNormal;
     MyMath::Vector3 worldPoint;
     MyMath::Vector3 worldNormal;
+};
+
+enum class SweptPointState
+{
+    Outside,
+    Boundary,
+    Inside
 };
 
 double normalizeAngle(double angle)
@@ -201,10 +162,8 @@ double normalizeAngle(double angle)
     return angle;
 }
 
-//获得插值坐标系
-MyMath::CoordinateSystem interpolateCoordinateSystem(const MyMath::CoordinateSystem& start,
-                                                     const MyMath::CoordinateSystem& end,
-                                                     double t)
+// 获取两个点位之间运动参数t对应的插值坐标系。
+MyMath::CoordinateSystem interpolateCoordinateSystem(const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end, double t)
 {
     MyMath::Quaternion startOrientation;
     MyMath::Quaternion endOrientation;
@@ -213,13 +172,11 @@ MyMath::CoordinateSystem interpolateCoordinateSystem(const MyMath::CoordinateSys
 
     const MyMath::Vector3 origin = start.origin() * (1.0 - t) + end.origin() * t;
     const MyMath::Quaternion orientation = MyMath::Quaternion::slerp(startOrientation, endOrientation, t);
-
     return MyMath::CoordinateSystem::fromQuaternion(origin, orientation);
 }
 
 // 返回SLERP运动对应的局部旋转参数导数w，使R(t)^T*R'(t)*q=w×q。
-MyMath::Vector3 rotationParameterDerivative(const MyMath::CoordinateSystem& start,
-                                            const MyMath::CoordinateSystem& end)
+MyMath::Vector3 rotationParameterDerivative(const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end)
 {
     MyMath::Quaternion startOrientation;
     MyMath::Quaternion endOrientation;
@@ -227,23 +184,17 @@ MyMath::Vector3 rotationParameterDerivative(const MyMath::CoordinateSystem& star
     end.orientation(endOrientation);
 
     const MyMath::Quaternion relativeOrientation = startOrientation.inverted() * endOrientation;
-
     MyMath::Vector3 axis;
     double angle = 0.0;
     relativeOrientation.toAxisAngle(axis, angle);
-
     return axis * angle;
 }
 
 // 计算回转面上给定(r,h,g')在运动参数t处的普通包络候选点。
-// 正常情况返回0、1或2个候选点；D≈0且C≈0的退化情况暂不生成离散候选点。
-void calculateEnvelopeCandidatePoints(double radius,
-                                      double h,
-                                      double radialDerivative,
-                                      const MyMath::CoordinateSystem& start,
-                                      const MyMath::CoordinateSystem& end,
-                                      double t,
-                                      std::vector<EnvelopeCandidatePoint>& result)
+// 正常情况返回0、1或2个候选点；D≈0且C≈0属于退化情况，暂不生成离散候选点。
+void calculateEnvelopeCandidatePoints(double radius, double h, double radialDerivative,
+                                      const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end,
+                                      double t, std::vector<EnvelopeCandidatePoint>& result)
 {
     result.clear();
 
@@ -252,26 +203,21 @@ void calculateEnvelopeCandidatePoints(double radius,
 
     // p'(t)=p2-p1，转换到当前砂轮局部坐标系得到u(t)=R(t)^T*p'(t)。
     const MyMath::Vector3 translationDerivativeWorld = end.origin() - start.origin();
-    const MyMath::Vector3 u(
-        MyMath::Vector3::dot(current.xAxis(), translationDerivativeWorld),
-        MyMath::Vector3::dot(current.yAxis(), translationDerivativeWorld),
-        MyMath::Vector3::dot(current.zAxis(), translationDerivativeWorld));
-
-    // SLERP对应的局部旋转参数导数w。
+    const MyMath::Vector3 u(MyMath::Vector3::dot(current.xAxis(), translationDerivativeWorld),
+                            MyMath::Vector3::dot(current.yAxis(), translationDerivativeWorld),
+                            MyMath::Vector3::dot(current.zAxis(), translationDerivativeWorld));
     const MyMath::Vector3 w = rotationParameterDerivative(start, end);
 
     const double A = u.x() + (h + radius * radialDerivative) * w.y();
     const double B = u.y() - (h + radius * radialDerivative) * w.x();
     const double C = -radialDerivative * u.z();
-
     const double D = std::sqrt(A * A + B * B);
 
-    // D≈0时，C!=0无解；C≈0时所有θ均满足，为退化情况，暂不生成离散点。
+    // D≈0时，C!=0无解；C≈0时所有θ均满足，为退化情况。
     if (D <= epsilon) return;
 
     double value = -C / D;
     if (value < -1.0 - epsilon || value > 1.0 + epsilon) return;
-
     if (value < -1.0) value = -1.0;
     if (value > 1.0) value = 1.0;
 
@@ -282,20 +228,19 @@ void calculateEnvelopeCandidatePoints(double radius,
     const MyMath::Vector3 localPlus(radius * std::cos(thetaPlus), radius * std::sin(thetaPlus), h);
     const MyMath::Vector3 localNormalPlus(std::cos(thetaPlus), std::sin(thetaPlus), -radialDerivative);
     const MyMath::Vector3 worldNormalPlus = current.mapVector(localNormalPlus).normalized();
-
     result.push_back(EnvelopeCandidatePoint(thetaPlus, localPlus, localNormalPlus, current.toGlobal(localPlus), worldNormalPlus));
 
-    // |C|=D时两条解析分支重合，只保留一个候选点。
+    // |C|=D时两条分支重合，只保留一个候选点。
     if (alpha <= epsilon || std::fabs(alpha - MyMath::Pi) <= epsilon) return;
 
     const double thetaMinus = normalizeAngle(phi - alpha);
     const MyMath::Vector3 localMinus(radius * std::cos(thetaMinus), radius * std::sin(thetaMinus), h);
     const MyMath::Vector3 localNormalMinus(std::cos(thetaMinus), std::sin(thetaMinus), -radialDerivative);
     const MyMath::Vector3 worldNormalMinus = current.mapVector(localNormalMinus).normalized();
-
     result.push_back(EnvelopeCandidatePoint(thetaMinus, localMinus, localNormalMinus, current.toGlobal(localMinus), worldNormalMinus));
 }
 
+// 返回回转体在指定Z位置的半径。
 double revolvedRadiusAt(const std::vector<RevolvedSection>& sections, double z)
 {
     if (z <= sections.front().z) return sections.front().radius;
@@ -305,7 +250,6 @@ double revolvedRadiusAt(const std::vector<RevolvedSection>& sections, double z)
     {
         const RevolvedSection& first = sections[index];
         const RevolvedSection& second = sections[index + 1];
-
         if (z < first.z || z > second.z) continue;
 
         const double t = (z - first.z) / (second.z - first.z);
@@ -315,8 +259,7 @@ double revolvedRadiusAt(const std::vector<RevolvedSection>& sections, double z)
     return sections.back().radius;
 }
 
-// 返回一个用于砂轮实体内外分类的连续标量：
-// value<0：实体内部；value=0：实体边界；value>0：实体外部。
+// 返回砂轮实体内外分类值：value<0为内部，value=0为边界，value>0为外部。
 double revolvedSolidValue(const std::vector<RevolvedSection>& sections, const MyMath::Vector3& point)
 {
     const double minimumZ = sections.front().z;
@@ -328,25 +271,21 @@ double revolvedSolidValue(const std::vector<RevolvedSection>& sections, const My
     const double radialValue = radialDistance - radius;
     const double bottomValue = minimumZ - point.z();
     const double topValue = point.z() - maximumZ;
-
     return (std::max)(radialValue, (std::max)(bottomValue, topValue));
 }
 
-double movingWheelValue(const MyMath::Vector3& worldPoint,
-                        const std::vector<RevolvedSection>& sections,
-                        const MyMath::CoordinateSystem& start,
-                        const MyMath::CoordinateSystem& end,
-                        double s)
+// 返回固定世界点在运动参数s对应砂轮实体下的内外分类值。
+double movingWheelValue(const MyMath::Vector3& worldPoint, const std::vector<RevolvedSection>& sections,
+                        const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end, double s)
 {
     const MyMath::CoordinateSystem current = interpolateCoordinateSystem(start, end, s);
     return revolvedSolidValue(sections, current.toLocal(worldPoint));
 }
-double sweptSolidMinimumValue(const MyMath::Vector3& worldPoint,
-                              const std::vector<RevolvedSection>& sections,
-                              const MyMath::CoordinateSystem& start,
-                              const MyMath::CoordinateSystem& end,
-                              double candidateT,
-                              int sampleCount)
+
+// 在整个运动参数区间内搜索固定世界点对应的最小砂轮实体分类值。
+double sweptSolidMinimumValue(const MyMath::Vector3& worldPoint, const std::vector<RevolvedSection>& sections,
+                              const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end,
+                              double candidateT, int sampleCount)
 {
     double minimumValue = movingWheelValue(worldPoint, sections, start, end, candidateT);
 
@@ -359,37 +298,24 @@ double sweptSolidMinimumValue(const MyMath::Vector3& worldPoint,
 
     return minimumValue;
 }
-enum class SweptPointState
-{
-    Outside,
-    Boundary,
-    Inside
-};
 
-SweptPointState classifySweptPoint(const MyMath::Vector3& worldPoint,
-                                   const std::vector<RevolvedSection>& sections,
-                                   const MyMath::CoordinateSystem& start,
-                                   const MyMath::CoordinateSystem& end,
-                                   double candidateT,
-                                   int sampleCount,
-                                   double tolerance)
+// 判断世界点相对于整个扫掠实体的位置。
+SweptPointState classifySweptPoint(const MyMath::Vector3& worldPoint, const std::vector<RevolvedSection>& sections,
+                                   const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end,
+                                   double candidateT, int sampleCount, double tolerance)
 {
     const double value = sweptSolidMinimumValue(worldPoint, sections, start, end, candidateT, sampleCount);
-
     if (value < -tolerance) return SweptPointState::Inside;
     if (value > tolerance) return SweptPointState::Outside;
     return SweptPointState::Boundary;
 }
-bool isFinalEnvelopePoint(const EnvelopeCandidatePoint& candidate,
-                          const std::vector<RevolvedSection>& sections,
-                          const MyMath::CoordinateSystem& start,
-                          const MyMath::CoordinateSystem& end,
-                          double candidateT,
-                          int sampleCount,
-                          double normalOffset,
-                          double tolerance)
+
+// 判断普通候选包络点是否真正位于最终扫掠实体边界。
+bool isFinalEnvelopePoint(const EnvelopeCandidatePoint& candidate, const std::vector<RevolvedSection>& sections,
+                          const MyMath::CoordinateSystem& start, const MyMath::CoordinateSystem& end,
+                          double candidateT, int sampleCount, double normalOffset, double tolerance)
 {
-    // 候选点如果已经被运动过程中其他砂轮位置严格覆盖，则一定不是最终边界。
+    // 候选点被其他运动位置的砂轮严格覆盖时，一定不是最终包络点。
     if (classifySweptPoint(candidate.worldPoint, sections, start, end, candidateT, sampleCount, tolerance) == SweptPointState::Inside) return false;
 
     const MyMath::Vector3 normal = candidate.worldNormal.normalized();
@@ -399,12 +325,11 @@ bool isFinalEnvelopePoint(const EnvelopeCandidatePoint& candidate,
     const SweptPointState positiveState = classifySweptPoint(positivePoint, sections, start, end, candidateT, sampleCount, tolerance);
     const SweptPointState negativeState = classifySweptPoint(negativePoint, sections, start, end, candidateT, sampleCount, tolerance);
 
-    // 真正的规则扫掠边界，其法向两侧必须一侧在扫掠体内、一侧在扫掠体外。
     if (positiveState == SweptPointState::Inside && negativeState == SweptPointState::Outside) return true;
     if (positiveState == SweptPointState::Outside && negativeState == SweptPointState::Inside) return true;
-
     return false;
 }
+
 }
 
 MyBRep::Solid createTool()
@@ -432,6 +357,7 @@ MyBRep::Solid createTool()
 
     return createRevolvedSolid(sections, 48);
 }
+
 MyBRep::Solid createGrindingWheel()
 {
     std::vector<RevolvedSection> sections;
@@ -456,19 +382,17 @@ MyBRep::Solid createGrindingWheel()
     return createRevolvedSolid(sections, 64);
 }
 
-
-int main(int argc, char* argv[]){
-
+int main(int argc, char* argv[])
+{
     QApplication app(argc, argv);
     MyBRep::Display::BRepViewerWidget window;
     window.resize(800, 600);
 
-
     MyBRep::Solid tool = createTool();
     MyBRep::Solid grindingWheel = createGrindingWheel();
-    window.addSolid(tool);
+    // window.addSolid(tool);
     window.addSolid(grindingWheel);
+
     window.show();
     return app.exec();
-
 }

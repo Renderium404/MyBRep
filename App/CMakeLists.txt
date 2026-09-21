@@ -23,6 +23,7 @@ target_include_directories(MyBRepApp
 target_link_libraries(MyBRepApp
     PRIVATE
         MyBRepOpenGL
+        MyOpenGLViewer
         Qt5::Core
         Qt5::Gui
         Qt5::Widgets

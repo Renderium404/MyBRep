@@ -16,6 +16,8 @@ class BRepViewerWidget;
 }
 }
 
+class ViewerTool;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -28,7 +30,16 @@ public:
     const MyBRep::Display::BRepViewerWidget* viewer() const;
 
 private:
+    void activateMeasurementTool(ViewerTool* tool, bool checked);
+    void clearMeasurementToolButtons();
+
+private:
     Ui::MainWindow* m_ui;
+
+    ViewerTool* m_length2DTool;
+    ViewerTool* m_length3DTool;
+    ViewerTool* m_angle2DTool;
+    ViewerTool* m_angle3DTool;
 };
 
 #endif // APP_MAINWINDOW_H

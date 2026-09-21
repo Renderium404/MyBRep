@@ -10,7 +10,7 @@
 
 class Material;
 class OpenGLViewerWidget;
-class RenderContext;
+struct RenderContext;
 class Renderer;
 class RenderState;
 

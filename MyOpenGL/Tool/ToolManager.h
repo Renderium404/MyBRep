@@ -8,7 +8,7 @@ class QMouseEvent;
 class QPainter;
 class QWheelEvent;
 class OpenGLViewerWidget;
-class RenderContext;
+struct RenderContext;
 class Renderer;
 class ViewerTool;
 
