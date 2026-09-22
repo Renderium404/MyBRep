@@ -545,65 +545,35 @@ BRepDisplayId BRepViewerWidget::addWireframe(const Edge& edge, const QString& na
 {
     if (!edge.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(edge.id(),
-                       Tool::TopologyCollector::collect(edge.topology()),
-                       edge.localToWorld(),
-                       name,
-                       style,
-                       false,
-                       true);
+    return addInstance(edge.id(),Tool::TopologyCollector::collect(edge.topology()),edge.localToWorld(),name,style,false,true);
 }
 
 BRepDisplayId BRepViewerWidget::addWireframe(const Wire& wire, const QString& name, const BRepDisplayStyle& style)
 {
     if (!wire.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(wire.id(),
-                       Tool::TopologyCollector::collect(wire.topology()),
-                       wire.localToWorld(),
-                       name,
-                       style,
-                       false,
-                       true);
+    return addInstance(wire.id(),Tool::TopologyCollector::collect(wire.topology()),wire.localToWorld(),name,style,false,true);
 }
 
 BRepDisplayId BRepViewerWidget::addWireframe(const Face& face, const QString& name, const BRepDisplayStyle& style)
 {
     if (!face.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(face.id(),
-                       Tool::TopologyCollector::collect(face.topology()),
-                       face.localToWorld(),
-                       name,
-                       style,
-                       false,
-                       true);
+    return addInstance(face.id(),Tool::TopologyCollector::collect(face.topology()),face.localToWorld(),name,style,false,true);
 }
 
 BRepDisplayId BRepViewerWidget::addWireframe(const Shell& shell, const QString& name, const BRepDisplayStyle& style)
 {
     if (!shell.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(shell.id(),
-                       Tool::TopologyCollector::collect(shell.topology()),
-                       shell.localToWorld(),
-                       name,
-                       style,
-                       false,
-                       true);
+    return addInstance(shell.id(),Tool::TopologyCollector::collect(shell.topology()),shell.localToWorld(),name,style,false,true);
 }
 
 BRepDisplayId BRepViewerWidget::addWireframe(const Solid& solid, const QString& name, const BRepDisplayStyle& style)
 {
     if (!solid.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(solid.id(),
-                       Tool::TopologyCollector::collect(solid.topology()),
-                       solid.localToWorld(),
-                       name,
-                       style,
-                       false,
-                       true);
+    return addInstance(solid.id(),Tool::TopologyCollector::collect(solid.topology()),solid.localToWorld(),name,style,false,true);
 }
 
 /// Surface + Edge Instance
@@ -612,39 +582,21 @@ BRepDisplayId BRepViewerWidget::addFace(const Face& face, const QString& name, c
 {
     if (!face.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(face.id(),
-                       Tool::TopologyCollector::collect(face.topology()),
-                       face.localToWorld(),
-                       name,
-                       style,
-                       true,
-                       true);
+    return addInstance(face.id(),Tool::TopologyCollector::collect(face.topology()),face.localToWorld(),name,style,true,true);
 }
 
 BRepDisplayId BRepViewerWidget::addShell(const Shell& shell, const QString& name, const BRepDisplayStyle& style)
 {
     if (!shell.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(shell.id(),
-                       Tool::TopologyCollector::collect(shell.topology()),
-                       shell.localToWorld(),
-                       name,
-                       style,
-                       true,
-                       true);
+    return addInstance(shell.id(),Tool::TopologyCollector::collect(shell.topology()),shell.localToWorld(),name,style,true,true);
 }
 
 BRepDisplayId BRepViewerWidget::addSolid(const Solid& solid, const QString& name, const BRepDisplayStyle& style)
 {
     if (!solid.isValid()) return InvalidBRepDisplayId;
 
-    return addInstance(solid.id(),
-                       Tool::TopologyCollector::collect(solid.topology()),
-                       solid.localToWorld(),
-                       name,
-                       style,
-                       true,
-                       true);
+    return addInstance(solid.id(),Tool::TopologyCollector::collect(solid.topology()),solid.localToWorld(),name,style,true,true);
 }
 
 /// 全局离散参数

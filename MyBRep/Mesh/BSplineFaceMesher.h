@@ -14,8 +14,9 @@ struct BSplineFaceMeshOptions : public ParametricFaceMeshOptions
     BSplineFaceMeshOptions();
 };
 
-// 有限、非周期、正则B-Spline Surface Face Mesher。
-// v1支持一阶导数唯一的参数区域；未知参数奇点继续拒绝。
+// 有限、非周期B-Spline Surface Face Mesher。
+// 一次×一次且trimming为完整自然参数域矩形时按节点Span独立三角化，支持C0内部节点并保留节点线两侧独立法向。
+// 其余B-Spline Face继续使用通用参数曲面Mesher，当前要求实际网格采样点处一阶导数唯一。
 class BSplineFaceMesher
 {
 public:

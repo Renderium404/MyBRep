@@ -110,19 +110,19 @@ Topology_Edge createBezier(
 
 /// B-Spline
 
-// 使用次数、控制点和节点向量创建覆盖B-Spline完整自然参数域的Topology_Edge，并自动创建端点Topology_Vertex。
+// 使用控制点创建覆盖B-Spline完整自然参数域的Topology_Edge；knots为空时强制使用一次B-Spline并自动生成Polyline节点。
 Topology_Edge createBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots);
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>());
 
-// 使用已有起终Topology_Vertex、次数、控制点和节点向量创建覆盖B-Spline完整自然参数域的Topology_Edge。
+// 使用已有起终Topology_Vertex创建覆盖B-Spline完整自然参数域的Topology_Edge；knots为空时强制使用一次B-Spline并自动生成Polyline节点。
 Topology_Edge createBSpline(
     const Topology_Vertex& startVertex,
     const Topology_Vertex& endVertex,
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>(),
     double connectionTolerance = MyMath::Vector3::DefaultEpsilon);
 
 /// 空间Edge实例创建
@@ -261,38 +261,37 @@ Edge makeBezier(
 
 /// B-Spline实例
 
-// 使用单位变换创建完整B-Spline Edge实例。
+// 使用单位变换创建完整B-Spline Edge实例；knots为空时自动创建一次Polyline B-Spline。
 Edge makeBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots);
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>());
 
-// 使用指定可逆仿射变换创建完整B-Spline Edge实例。
+// 使用指定可逆仿射变换创建完整B-Spline Edge实例；knots为空时自动创建一次Polyline B-Spline。
 Edge makeBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
-    const MyMath::Matrix4& localToWorld);
+    const MyMath::Matrix4& localToWorld,
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>());
 
 // 使用已有Topology_Vertex和单位变换创建完整B-Spline Edge实例。
 Edge makeBSpline(
     const Topology_Vertex& startVertex,
     const Topology_Vertex& endVertex,
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>(),
     double connectionTolerance = MyMath::Vector3::DefaultEpsilon);
 
 // 使用已有Topology_Vertex和指定可逆仿射变换创建完整B-Spline Edge实例。
 Edge makeBSpline(
     const Topology_Vertex& startVertex,
     const Topology_Vertex& endVertex,
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
     const MyMath::Matrix4& localToWorld,
+    std::size_t degree = 1,
+    const std::vector<double>& knots = std::vector<double>(),
     double connectionTolerance = MyMath::Vector3::DefaultEpsilon);
-
 }
 }
 

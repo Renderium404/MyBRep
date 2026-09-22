@@ -91,7 +91,37 @@ Topology_Edge createAutomaticEdge(
     const Topology_Vertex lastVertex(lastPoint);
     return createEdge(firstVertex, lastVertex, geometry, firstParameter, lastParameter, 0.0);
 }
+std::vector<double> createPolylineKnots(std::size_t controlPointCount)
+{
+    MYBREP_ASSERT_MESSAGE(controlPointCount >= 2,
+                          "Automatic Polyline B-Spline requires at least two control points.");
 
+    std::vector<double> knots;
+    knots.reserve(controlPointCount + 2);
+    knots.push_back(0.0);
+    knots.push_back(0.0);
+
+    for (std::size_t index = 1; index + 1 < controlPointCount; ++index) knots.push_back(static_cast<double>(index));
+
+    const double lastParameter = static_cast<double>(controlPointCount - 1);
+    knots.push_back(lastParameter);
+    knots.push_back(lastParameter);
+    return knots;
+}
+
+Foundation::RefPtr<const Geometry_Curve> createBSplineGeometry(
+    const std::vector<MyMath::Vector3>& controlPoints,
+    std::size_t degree,
+    const std::vector<double>& knots)
+{
+    if (knots.empty())
+    {
+        const std::vector<double> automaticKnots = createPolylineKnots(controlPoints.size());
+        return Foundation::RefPtr<const Geometry_Curve>(new Geometry_BSpline(1, controlPoints, automaticKnots));
+    }
+
+    return Foundation::RefPtr<const Geometry_Curve>(new Geometry_BSpline(degree, controlPoints, knots));
+}
 }
 
 /// 局部Topology_Edge创建
@@ -248,23 +278,25 @@ Topology_Edge createBezier(
 /// B-Spline
 
 Topology_Edge createBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
+    std::size_t degree,
     const std::vector<double>& knots)
 {
-    const Foundation::RefPtr<const Geometry_Curve> geometry(new Geometry_BSpline(degree, controlPoints, knots));
+    const Foundation::RefPtr<const Geometry_Curve> geometry =EdgeModelingDetail::createBSplineGeometry(controlPoints, degree, knots);
+
     return createEdge(geometry, geometry->domainStart(), geometry->domainEnd());
 }
 
 Topology_Edge createBSpline(
     const Topology_Vertex& startVertex,
     const Topology_Vertex& endVertex,
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
+    std::size_t degree,
     const std::vector<double>& knots,
     double connectionTolerance)
 {
-    const Foundation::RefPtr<const Geometry_Curve> geometry(new Geometry_BSpline(degree, controlPoints, knots));
+    const Foundation::RefPtr<const Geometry_Curve> geometry =EdgeModelingDetail::createBSplineGeometry(controlPoints, degree, knots);
+
     return createEdge(startVertex, endVertex, geometry, geometry->domainStart(), geometry->domainEnd(), connectionTolerance);
 }
 
@@ -445,43 +477,43 @@ Edge makeBezier(
 /// B-Spline实例
 
 Edge makeBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
+    std::size_t degree,
     const std::vector<double>& knots)
 {
-    return Edge(createBSpline(degree, controlPoints, knots));
+    return Edge(createBSpline(controlPoints, degree, knots));
 }
 
 Edge makeBSpline(
-    std::size_t degree,
     const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
-    const MyMath::Matrix4& localToWorld)
-{
-    return Edge(createBSpline(degree, controlPoints, knots), localToWorld);
-}
-
-Edge makeBSpline(
-    const Topology_Vertex& startVertex,
-    const Topology_Vertex& endVertex,
-    std::size_t degree,
-    const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
-    double connectionTolerance)
-{
-    return Edge(createBSpline(startVertex, endVertex, degree, controlPoints, knots, connectionTolerance));
-}
-
-Edge makeBSpline(
-    const Topology_Vertex& startVertex,
-    const Topology_Vertex& endVertex,
-    std::size_t degree,
-    const std::vector<MyMath::Vector3>& controlPoints,
-    const std::vector<double>& knots,
     const MyMath::Matrix4& localToWorld,
+    std::size_t degree,
+    const std::vector<double>& knots)
+{
+    return Edge(createBSpline(controlPoints, degree, knots), localToWorld);
+}
+
+Edge makeBSpline(
+    const Topology_Vertex& startVertex,
+    const Topology_Vertex& endVertex,
+    const std::vector<MyMath::Vector3>& controlPoints,
+    std::size_t degree,
+    const std::vector<double>& knots,
     double connectionTolerance)
 {
-    return Edge(createBSpline(startVertex, endVertex, degree, controlPoints, knots, connectionTolerance), localToWorld);
+    return Edge(createBSpline(startVertex, endVertex, controlPoints, degree, knots, connectionTolerance));
+}
+
+Edge makeBSpline(
+    const Topology_Vertex& startVertex,
+    const Topology_Vertex& endVertex,
+    const std::vector<MyMath::Vector3>& controlPoints,
+    const MyMath::Matrix4& localToWorld,
+    std::size_t degree,
+    const std::vector<double>& knots,
+    double connectionTolerance)
+{
+    return Edge(createBSpline(startVertex, endVertex, controlPoints, degree, knots, connectionTolerance), localToWorld);
 }
 
 }

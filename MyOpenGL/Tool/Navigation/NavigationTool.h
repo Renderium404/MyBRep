@@ -12,7 +12,7 @@ class Material;
 class OpenGLViewerWidget;
 struct RenderContext;
 class Renderer;
-class RenderState;
+struct RenderState;
 
 /// Viewer基础导航工具。
 /// 负责ViewNavigation点击、Orbit、Pan、Wheel Zoom以及导航锚点显示。
