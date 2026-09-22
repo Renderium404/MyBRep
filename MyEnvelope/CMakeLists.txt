@@ -1,14 +1,14 @@
 set(MYENVELOPE_SOURCES
-    Geometry/RevolvedEnvelopeSurface.cpp
-    Motion/MotionSegment.cpp
-    Envelope/EnvelopeSurfaceBuilder.cpp
+    # Geometry/RevolvedEnvelopeSurface.cpp
+    # Motion/MotionSegment.cpp
+    # Envelope/EnvelopeSurfaceBuilder.cpp
 )
 
 set(MYENVELOPE_HEADERS
-    Geometry/RevolvedEnvelopeSurface.h
-    Motion/MotionSegment.h
-    Envelope/RevolvedEnvelopeBranch.h
-    Envelope/EnvelopeSurfaceBuilder.h
+    # Geometry/RevolvedEnvelopeSurface.h
+    # Motion/MotionSegment.h
+    # Envelope/RevolvedEnvelopeBranch.h
+    # Envelope/EnvelopeSurfaceBuilder.h
 )
 
 add_library(MyEnvelope STATIC ${MYENVELOPE_SOURCES} ${MYENVELOPE_HEADERS})

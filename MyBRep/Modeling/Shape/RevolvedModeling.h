@@ -14,7 +14,7 @@ namespace Modeling
 
 /// 局部Topology_Shape创建
 
-// 使用局部XY平面闭合Topology_Wire作为有限母线，创建绕局部Z轴完整旋转的Topology_Shape。
+// 使用局部XY平面闭合Topology_Wire作为三维建模输入，将其转换为二维母线后创建绕局部Z轴完整旋转的Topology_Shape。
 Topology_Shape createRevolved(const Topology_Wire& profile, double profileTolerance = MyMath::Vector3::DefaultEpsilon);
 
 /// 空间Shape实例创建
