@@ -13,12 +13,14 @@
 #include "MyBRep/Instance/Face.h"
 #include "MyBRep/Instance/Shell.h"
 #include "MyBRep/Instance/Solid.h"
+#include "MyBRep/Instance/Shape.h"
 #include "MyBRep/Instance/Wire.h"
 #include "MyBRep/Instance/Instance.h"
 #include "MyBRep/Tool/Collector/TopologyCollector.h"
 
 #include "MyBRepOpenGL/Builder/BRepEdgeBuilder.h"
 #include "MyBRepOpenGL/Builder/BRepFaceBuilder.h"
+#include "MyBRepOpenGL/Builder/BRepShapeBuilder.h"
 #include "MyBRepOpenGL/Display/BRepDisplayManager.h"
 #include "MyBRepOpenGL/Display/BRepDisplayObject.h"
 #include "MyBRepOpenGL/Display/BRepDisplayStyle.h"
@@ -39,14 +41,15 @@ namespace Display
 
 struct BRepViewerBuildOptions
 {
-    bool isValid() const { return face.isValid() && edge.isValid(); }
+    bool isValid() const { return face.isValid() && edge.isValid() && shape.isValid(); }
 
     BRepFaceBuildOptions face;
     BRepEdgeBuildOptions edge;
+    BRepShapeBuildOptions shape;
 };
 
 // 一个B-Rep Instance对应一个RenderItem。
-// Face/Edge拓扑对应共享Geometry Resource；RenderPart由ItemManager拥有，RenderItem只负责组织。
+// Face/Edge/Shape拓扑对应共享Geometry Resource；RenderPart由ItemManager拥有，RenderItem只负责组织。
 class BRepViewerWidget : public OpenGLViewerWidget
 {
 public:
@@ -73,6 +76,12 @@ public:
     BRepDisplayId addShell(const Shell& shell, const QString& name = "BRepShell",
                            const BRepDisplayStyle& style = BRepDisplayStyle());
     BRepDisplayId addSolid(const Solid& solid, const QString& name = "BRepSolid",
+                           const BRepDisplayStyle& style = BRepDisplayStyle());
+
+    /// Continuous Shape Instance
+
+    // 当前第一阶段只接受ShapeKind::Revolved，显示连续体表面，不生成诊断母线或旋转轴。
+    BRepDisplayId addShape(const Shape& shape, const QString& name = "BRepShape",
                            const BRepDisplayStyle& style = BRepDisplayStyle());
 
     /// 全局离散参数
@@ -104,7 +113,7 @@ public:
     bool refreshPlacement(const Instance& instance);
 
     // 将指定Instance当前Topology同步到对应RenderItem。
-    // 保持Instance、RenderItem、Material和空间放置不变，重新组织Face/Edge RenderPart。
+    // 保持Instance、RenderItem、Material和空间放置不变；B-Rep重组Face/Edge Part，Shape重建连续体表面Part。
     bool refreshTopology(const Instance& instance);
 
 private:
@@ -122,6 +131,7 @@ private:
 
     ResourceId acquireFaceResource(const Topology_Face& face, const QString& name);
     ResourceId acquireEdgeResource(const Topology_Edge& edge, const QString& name);
+    ResourceId acquireShapeResource(const Topology_Shape& shape, const QString& name);
 
     // 回收只剩BRepDisplayManager自身一份RefPtr引用的Topology Geometry。
     bool clearUnusedTopologyResources();
@@ -137,6 +147,8 @@ private:
                          const Material* material, const QString& name);
     bool attachEdgeParts(RenderItem& item, const std::vector<Topology_Edge>& edges,
                         const Material* material, float lineWidth, const QString& name);
+    bool attachShapePart(RenderItem& item, const Topology_Shape& shape,
+                         const Material* material, const QString& name);
 
     // 返回Item当前引用的全部RenderPart身份。
     static std::vector<RenderPartId> itemPartIds(const RenderItem& item);
@@ -173,6 +185,7 @@ private:
 
     // 按内部Display身份刷新Topology组成。
     bool refreshTopology(BRepDisplayId displayId, const Tool::TopologyCollection& topology);
+    bool refreshShapeTopology(BRepDisplayId displayId, const Topology_Shape& topology);
 
 private:
     typedef std::map<BRepDisplayId, BRepDisplayObject> DisplayMap;

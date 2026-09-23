@@ -8,6 +8,8 @@ set(MYBREP_OPENGL_SRC
     Builder/BRepFaceBuilder.h
     Builder/BRepEdgeBuilder.cpp
     Builder/BRepEdgeBuilder.h
+    Builder/BRepShapeBuilder.cpp
+    Builder/BRepShapeBuilder.h
 
     Display/BRepDisplayManager.cpp
     Display/BRepDisplayManager.h

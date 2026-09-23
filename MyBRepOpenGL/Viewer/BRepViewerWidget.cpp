@@ -294,6 +294,45 @@ ResourceId BRepViewerWidget::acquireEdgeResource(const Topology_Edge& edge, cons
     return resourceId;
 }
 
+
+ResourceId BRepViewerWidget::acquireShapeResource(const Topology_Shape& shape, const QString& name)
+{
+    if (!shape.isValid()) return InvalidResourceId;
+
+    const TopologyId topologyId = shape.id();
+    const ResourceId existing = m_displayManager.resourceId(topologyId);
+
+    if (existing != InvalidResourceId)
+    {
+        return m_displayManager.resourceType(topologyId) == BRepTopologyResourceType::Shape
+                   ? existing
+                   : InvalidResourceId;
+    }
+
+    // Orientation不参与Geometry Resource身份，统一生成Forward Geometry。
+    const Topology_Shape source = shape.isReversed() ? shape.reversed() : shape;
+    const QString resourceName = name + "_Shape_" + QString::number(static_cast<qulonglong>(topologyId));
+
+    BufferGeometry* geometry = BRepShapeBuilder::build(source, resourceName, m_buildOptions.shape);
+    if (geometry == 0) return InvalidResourceId;
+
+    const ResourceId resourceId = resourceManager().adopt(geometry);
+
+    if (resourceId == InvalidResourceId)
+    {
+        delete geometry;
+        return InvalidResourceId;
+    }
+
+    if (!m_displayManager.bindTopology(shape, BRepTopologyResourceType::Shape, resourceId))
+    {
+        resourceManager().remove(resourceId);
+        return InvalidResourceId;
+    }
+
+    return resourceId;
+}
+
 /// RenderPart组织
 
 bool BRepViewerWidget::attachFaceParts(RenderItem& item,
@@ -364,6 +403,37 @@ bool BRepViewerWidget::attachEdgeParts(RenderItem& item,
             itemManager().removePart(part->id());
             return false;
         }
+    }
+
+    return true;
+}
+
+
+bool BRepViewerWidget::attachShapePart(RenderItem& item, const Topology_Shape& shape,
+                                       const Material* material, const QString& name)
+{
+    if (material == 0 || !shape.isValid()) return false;
+
+    const ResourceId resourceId = acquireShapeResource(shape, name);
+    if (resourceId == InvalidResourceId) return false;
+
+    const BufferGeometry* geometry = static_cast<const BufferGeometry*>(resourceManager().get(resourceId));
+    if (geometry == 0) return false;
+
+    const AxisAlignedBoundingBox bounds = geometryBounds(*geometry);
+    if (!bounds.isValid()) return false;
+
+    RenderPart* part = itemManager().createPart();
+    if (part == 0) return false;
+
+    part->setGeometry(geometry);
+    part->setMaterial(material);
+    part->setLocalBounds(bounds);
+
+    if (!item.addPart(part))
+    {
+        itemManager().removePart(part->id());
+        return false;
     }
 
     return true;
@@ -599,6 +669,86 @@ BRepDisplayId BRepViewerWidget::addSolid(const Solid& solid, const QString& name
     return addInstance(solid.id(),Tool::TopologyCollector::collect(solid.topology()),solid.localToWorld(),name,style,true,true);
 }
 
+/// Continuous Shape Instance
+
+BRepDisplayId BRepViewerWidget::addShape(const Shape& shape, const QString& name, const BRepDisplayStyle& style)
+{
+    if (!shape.isValid() || shape.kind() != ShapeKind::Revolved || !style.isFaceValid())
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    if (m_displayManager.containsInstance(shape.id())) return InvalidBRepDisplayId;
+
+    QVector3D position;
+    QQuaternion rotation;
+    QVector3D scale;
+
+    if (!decomposeItemTransform(shape.localToWorld(), position, rotation, scale))
+    {
+        return InvalidBRepDisplayId;
+    }
+
+    Material* surfaceMaterial = materialManager().createMaterial(name + "_SurfaceMaterial");
+
+    if (surfaceMaterial == 0 ||
+        !surfaceMaterial->setSurfaceMode(SurfaceMode::Color) ||
+        !surfaceMaterial->setColor(style.surfaceColor) ||
+        !surfaceMaterial->setBlendMode(blendModeForColor(style.surfaceColor)))
+    {
+        if (surfaceMaterial != 0) materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    surfaceMaterial->setLightingEnabled(style.surfaceLightingEnabled);
+
+    RenderItem* item = itemManager().createItem(name);
+
+    if (item == 0)
+    {
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    item->transform().setPosition(position);
+    item->transform().setRotation(rotation);
+    item->transform().setScale(scale);
+
+    if (!attachShapePart(*item, shape.topology(), surfaceMaterial, name))
+    {
+        itemManager().remove(item->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    if (!m_displayManager.bindInstance(shape.id(), item->id()))
+    {
+        itemManager().remove(item->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    const BRepDisplayId displayId = allocateDisplayId();
+
+    if (displayId == InvalidBRepDisplayId)
+    {
+        m_displayManager.unbindInstance(shape.id());
+        itemManager().remove(item->id());
+        materialManager().remove(surfaceMaterial->id());
+        return InvalidBRepDisplayId;
+    }
+
+    BRepDisplayObject object;
+    object.id = displayId;
+    object.itemId = item->id();
+    object.surfaceMaterialId = surfaceMaterial->id();
+
+    m_displays[displayId] = object;
+    update();
+
+    return displayId;
+}
+
 /// 全局离散参数
 
 const BRepViewerBuildOptions& BRepViewerWidget::buildOptions() const
@@ -724,6 +874,13 @@ bool BRepViewerWidget::refreshTopology(const Instance& instance)
 
     const BRepDisplayId displayId = displayIdByItem(itemId);
     if (displayId == InvalidBRepDisplayId) return false;
+
+    const Shape* shape = dynamic_cast<const Shape*>(&instance);
+
+    if (shape != 0)
+    {
+        return refreshShapeTopology(displayId, shape->topology());
+    }
 
     const Tool::TopologyCollection topology = Tool::TopologyCollector::collect(instance.topologyObject());
     if (topology.empty()) return false;
@@ -1153,6 +1310,41 @@ bool BRepViewerWidget::refreshTopology(BRepDisplayId displayId, const Tool::Topo
     update();
     return true;
 }
+
+
+bool BRepViewerWidget::refreshShapeTopology(BRepDisplayId displayId, const Topology_Shape& topology)
+{
+    if (!topology.isValid() || topology.geometry().kind() != ShapeKind::Revolved) return false;
+
+    DisplayMap::iterator displayIterator = m_displays.find(displayId);
+    if (displayIterator == m_displays.end()) return false;
+
+    BRepDisplayObject& object = displayIterator->second;
+    if (object.surfaceMaterialId == InvalidMaterialId || object.wireframeMaterialId != InvalidMaterialId) return false;
+
+    RenderItem* item = itemManager().get(object.itemId);
+    if (item == 0) return false;
+
+    const Material* surfaceMaterial = materialManager().get(object.surfaceMaterialId);
+    if (surfaceMaterial == 0) return false;
+
+    const std::vector<RenderPartId> oldPartIds = itemPartIds(*item);
+    const QString name = item->name();
+
+    if (!attachShapePart(*item, topology, surfaceMaterial, name))
+    {
+        const std::vector<RenderPartId> newPartIds = addedPartIds(*item, oldPartIds);
+        removeItemParts(*item, newPartIds);
+        return false;
+    }
+
+    if (!removeItemParts(*item, oldPartIds)) return false;
+    if (!clearUnusedTopologyResources()) return false;
+
+    update();
+    return true;
+}
+
 
 }
 }

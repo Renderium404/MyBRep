@@ -20,7 +20,8 @@ enum class BRepTopologyResourceType
 {
     Unknown,
     Face,
-    Edge
+    Edge,
+    Shape
 };
 
 // 一个Topology实体对应的MyOpenGL Geometry资源绑定。
